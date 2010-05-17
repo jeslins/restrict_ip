@@ -1,0 +1,4 @@
+; $Id$
+name = Restrict IP
+description = Restricts access to the site to a list of user defined IP addresses
+core = 6.x

@@ -1,0 +1,77 @@
+<?php
+
+// $Id$
+
+function restrict_ip_menu()
+{
+	$menu['admin/settings/restrict_ip'] = array
+	(
+		'title' => 'Allowed IP Address List',
+		'page callback' => 'drupal_get_form',
+		'page arguments' => array('restrict_ip_settings'),
+		'access arguments' => array('Administer Restricted IP addresses'),
+	);
+	return $menu;
+}
+
+function restrict_ip_perm()
+{
+	return array
+	(
+		'Administer Restricted IP addresses',
+	);
+}
+
+function restrict_ip_settings()
+{
+	$form['restrict_ip_address_description'] = array
+	(
+		'#value' => '<h2>' . t('Enter the list of allowed IP addresses below') . '</h2><p><strong style="color:red">' . t("Warning: If you don't enter your current IP address into the list, you will immediately be locked out of the system upon save, and will not be able to access the system until you are in a location with an allowed IP address.") . '</strong></p><p><strong>' . t('Your current IP address is: !ip_address', array('!ip_address' => '<em>' . ip_address() . '</em>')) . '</strong></p>',
+	);
+	$form['restrict_ip_address_list'] = array
+	(
+		'#title' => t('Allowed IP Address List'),
+		'#description' => t('Enter the list of IP Addresses that are allowed to access the site. Enter one address per line.'),
+		'#type' => 'textarea',
+		'#default_value' => variable_get('restrict_ip_address_list', ''),
+	);
+	return system_settings_form($form);
+}
+
+function restrict_ip_settings_validate($form, &$form_state)
+{
+	if(strlen(trim($ip_addresses)))
+	{
+		$ip_addresses = explode(PHP_EOL, trim($form_state['values']['restrict_ip_address_list']));
+		foreach($ip_addresses as $ip_address)
+		{
+			if(!preg_match('~\b(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\b~', $ip_address))
+			{
+				form_set_error('restrict_ip_address_list', t('!ip_address is not a valid IP address', array('!ip_address' => $ip_address)));
+			}
+		}
+	}
+}
+
+function restrict_ip_init()
+{
+	$ip_addresses = trim(variable_get('restrict_ip_address_list', ''));
+	if(strlen($ip_addresses))
+	{
+		$ip_addresses = explode(PHP_EOL, $ip_addresses);
+		$users_ip = ip_address();
+		$access_denied = TRUE;
+		foreach($ip_addresses as $ip_address)
+		{
+			if(trim($ip_address) == $users_ip)
+			{
+				$access_denied = FALSE;
+			}
+		}
+		if($access_denied)
+		{
+			drupal_set_message(t('Your IP address is not in the list of allowed IP addresses.'));
+			drupal_access_denied();
+		}
+	}
+}
