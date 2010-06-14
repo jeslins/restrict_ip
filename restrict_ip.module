@@ -31,23 +31,77 @@ function restrict_ip_settings()
 	$form['restrict_ip_address_list'] = array
 	(
 		'#title' => t('Allowed IP Address List'),
-		'#description' => t('Enter the list of IP Addresses that are allowed to access the site. Enter one address per line.'),
+		'#description' => t('Enter the list of IP Addresses that are allowed to access the site. Enter one IP address per line. You may also enter a range of IP addresses in the format AAA.BBB.CCC.XXX - AAA.BBB.CCC.YYY'),
 		'#type' => 'textarea',
 		'#default_value' => variable_get('restrict_ip_address_list', ''),
+	);
+	$form['restrict_ip_mail_address'] = array
+	(
+		'#title' => t('Email Address'),
+		'#type' => 'textfield',
+		'#description' => t('If you would like to include a contact email address in the error message that is shown to users that do not have an allowed IP address, enter the email address here.'),
+		'#default_value' => trim(variable_get('restrict_ip_mail_address', '')),
 	);
 	return system_settings_form($form);
 }
 
 function restrict_ip_settings_validate($form, &$form_state)
 {
+	$ip_addresses = $form_state['values']['restrict_ip_address_list'];
 	if(strlen(trim($ip_addresses)))
 	{
 		$ip_addresses = explode(PHP_EOL, trim($form_state['values']['restrict_ip_address_list']));
 		foreach($ip_addresses as $ip_address)
 		{
-			if(!preg_match('~\b(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\b~', $ip_address))
+			if(!preg_match('~^\b(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\b$~', trim($ip_address)))
 			{
-				form_set_error('restrict_ip_address_list', t('!ip_address is not a valid IP address', array('!ip_address' => $ip_address)));
+				$pieces = explode('-', $ip_address);
+				if(count($pieces) !== 2)
+				{
+					form_set_error('restrict_ip_address_list', t('!ip_address is not a valid IP address.', array('!ip_address' => $ip_address)));
+				}
+				else
+				{
+					$ip1 = trim($pieces[0]);
+					$ip2 = trim($pieces[1]);
+					$both_valid = TRUE;	
+					if(!preg_match('~^\b(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\b$~', $ip1))
+					{
+						form_set_error('restrict_ip_address_list', t('!ip_address is not a valid IP address.', array('!ip_address' => $ip1)));
+						$both_valid = FALSE;
+					}
+					if(!preg_match('~^\b(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\b$~', $ip2))
+					{
+						form_set_error('restrict_ip_address_list', t('!ip_address is not a valid IP address.', array('!ip_address' => $ip2)));
+						$both_valid = FALSE;
+					}
+					if($both_valid)
+					{
+						$first_parts_equal = TRUE;
+						$last_part_ok = TRUE;
+						$ip1_pieces = explode('.', $ip1);
+						$ip2_pieces = explode('.', $ip2);
+						for($i = 0; $i < 3; $i++)
+						{
+							if($ip1_pieces[$i] != $ip2_pieces[$i])
+							{
+								$first_parts_equal = FALSE;
+								break;
+							}
+						}
+						if($first_parts_equal)
+						{
+							if($ip2_pieces[3] <= $ip1_pieces[3])
+							{
+								$last_part_ok = FALSE;
+							}
+						}
+						if(!$first_parts_equal || !$last_part_ok)
+						{
+							form_set_error('restrict_ip_address_list', t('@ip_address is not a valid range of IP addresses.', array('@ip_address' => $ip_address)));
+						}
+					}
+				}
 			}
 		}
 	}
@@ -58,19 +112,48 @@ function restrict_ip_init()
 	$ip_addresses = trim(variable_get('restrict_ip_address_list', ''));
 	if(strlen($ip_addresses))
 	{
+		$contact_mail = trim(variable_get('restrict_ip_mail_address', ''));
+		$contact_text = (strlen($contact_mail)) ? ' ' . t('If you feel this is in error, please contact an administrator at !email.', array('!email' => $contact_mail)) : FALSE;
 		$ip_addresses = explode(PHP_EOL, $ip_addresses);
 		$users_ip = ip_address();
 		$access_denied = TRUE;
 		foreach($ip_addresses as $ip_address)
 		{
-			if(trim($ip_address) == $users_ip)
+			if(!preg_match('~^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$~', trim($ip_address)))
+			{
+				$pieces = explode('-', trim($ip_address));
+				$ip1_pieces = explode('.', trim($pieces[0]));
+				$users_ip_pieces = explode('.', $users_ip);
+				$first_parts_equal = TRUE;
+				for($i = 0; $i < 3; $i++)
+				{
+					if($users_ip_pieces[$i] != $ip1_pieces[$i])
+					{
+						$first_parts_equal = FALSE;
+					}
+					if($first_parts_equal)
+					{
+						$ip1_end = $ip1_pieces[3];
+						$ip2_pieces = explode('.', trim($pieces[1]));
+						$ip2_end = $ip2_pieces[3];
+						$user_end = $users_ip_pieces[3];
+						if($user_end >= $ip1_end && $user_end <= $ip2_end)
+						{
+							$access_denied = FALSE;
+							break;
+						}
+					}
+				}
+			}
+			elseif(trim($ip_address) == $users_ip)
 			{
 				$access_denied = FALSE;
+				break;
 			}
 		}
 		if($access_denied)
 		{
-			drupal_set_message(t('Your IP address is not in the list of allowed IP addresses.'));
+			drupal_set_message(t('Your IP address is not in the list of allowed IP addresses.') . $contact_text);
 			drupal_access_denied();
 		}
 	}
