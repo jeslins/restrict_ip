@@ -11,6 +11,11 @@ function restrict_ip_menu()
 		'page arguments' => array('restrict_ip_settings'),
 		'access arguments' => array('Administer Restricted IP addresses'),
 	);
+	$menu['access_denied'] = array
+	(
+		'title' => 'Access Denied',
+		'page callback' => 'denied',
+	);
 	return $menu;
 }
 
@@ -109,6 +114,8 @@ function restrict_ip_settings_validate($form, &$form_state)
 
 function restrict_ip_init()
 {
+	global $restricted_ip;
+	$restricted_ip = FALSE;
 	$ip_addresses = trim(variable_get('restrict_ip_address_list', ''));
 	if(strlen($ip_addresses))
 	{
@@ -153,8 +160,21 @@ function restrict_ip_init()
 		}
 		if($access_denied)
 		{
-			drupal_set_message(t('Your IP address is not in the list of allowed IP addresses.') . $contact_text);
-			drupal_access_denied();
+			if($_GET['q'] != 'access_denied')
+			{
+				drupal_goto('access_denied');
+			}
+			drupal_set_message(t('This site cannot be accessed from your IP address.') . $contact_text);
+			$restricted_ip = TRUE;
 		}
+	}
+}
+
+function restrict_ip_preprocess_block(&$items)
+{
+	global $restricted_ip;
+	if($restricted_ip)
+	{
+		unset($items['block']);
 	}
 }
