@@ -11,7 +11,7 @@ function restrict_ip_menu()
 		'page arguments' => array('restrict_ip_settings'),
 		'access arguments' => array('Administer Restricted IP addresses'),
 	);
-	$menu['access_denied'] = array
+	$menu['restrict_ip/access_denied'] = array
 	(
 		'title' => 'Access Denied',
 		'page callback' => 'denied',
