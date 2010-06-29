@@ -162,10 +162,10 @@ function restrict_ip_init()
 		{
 			if($_GET['q'] != 'restrict_ip/access_denied')
 			{
-				//drupal_goto('restrict_ip/access_denied');
+				drupal_goto('restrict_ip/access_denied');
 			}
 			drupal_set_message(t('This site cannot be accessed from your IP address.') . $contact_text);
-			//$restricted_ip = TRUE;
+			$restricted_ip = TRUE;
 		}
 	}
 }
