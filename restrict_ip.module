@@ -6,7 +6,8 @@ function restrict_ip_menu()
 {
 	$menu['admin/config/people/restrict_ip'] = array
 	(
-		'title' => 'Allowed IP Address List',
+		'title' => 'IP Address Whitelist',
+		'description' => 'Set the list of IP addresses that will be allowed to access the site',
 		'page callback' => 'drupal_get_form',
 		'page arguments' => array('restrict_ip_settings'),
 		'access arguments' => array('Administer Restricted IP addresses'),
@@ -40,7 +41,7 @@ function restrict_ip_settings()
 	$form['restrict_ip_address_list'] = array
 	(
 		'#title' => t('Allowed IP Address List'),
-		'#description' => t('Enter the list of IP Addresses that are allowed to access the site. Enter one IP address per line. You may also enter a range of IP addresses in the format AAA.BBB.CCC.XXX - AAA.BBB.CCC.YYY'),
+		'#description' => t('Enter the list of IP Addresses that are allowed to access the site. If this field is left empty, all IP addresses will be able to access the site. Enter one IP address per line. You may also enter a range of IP addresses in the format AAA.BBB.CCC.XXX - AAA.BBB.CCC.YYY'),
 		'#type' => 'textarea',
 		'#default_value' => variable_get('restrict_ip_address_list', ''),
 	);
@@ -180,9 +181,14 @@ function restrict_ip_init()
 				drupal_goto('restrict_ip/access_denied');
 			}
 			$contact_mail = trim(variable_get('restrict_ip_mail_address', ''));
-			$contact_text = (strlen($contact_mail)) ? ' ' . t('If you feel this is in error, please contact an administrator at !email.', array('!email' => $contact_mail)) : FALSE;
+			if(strlen($contact_mail))
+			{
+				$contact_mail = str_replace('@', '[at]', $contact_mail);
+			}
+			$contact_text = (strlen($contact_mail)) ? ' ' . t('If you feel this is in error, please contact an administrator at !email.', array('!email' => '<span id="restrict_ip_contact_mail">' . $contact_mail . '</span>')) : FALSE;
 			drupal_set_message(t('This site cannot be accessed from your IP address.') . $contact_text);
 			restrict_ip_value(TRUE);
+			drupal_add_js(drupal_get_path('module', 'restrict_ip') . '/js/restrict_ip.js');
 		}
 	}
 }
@@ -191,7 +197,9 @@ function restrict_ip_preprocess_block(&$items)
 {
 	if(restrict_ip_value())
 	{
-		unset($items['block']);
+		unset($items['elements']);
+		unset($items['title_prefix']);
+		unset($items['title_suffix']);
 	}
 }
 
@@ -199,7 +207,60 @@ function restrict_ip_preprocess_page(&$items)
 {
 	if(restrict_ip_value())
 	{
-		$items['closure'] = '';
-		$items['scripts'] = '';
+		global $theme;
+		$regions = system_region_list($theme, REGIONS_ALL);
+		foreach(array_keys($regions) as $region)
+		{
+			if(isset($items['page'][$region]))
+			{
+				$items['page'][$region] = '';
+			}
+		}
+		if(isset($items['tabs']))
+		{
+			if(isset($items['tabs']['#primary']))
+			{
+				$items['tabs']['#primary'] = array();
+			}
+			if(isset($items['tabs']['#secondary']))
+			{
+				$items['tabs']['#primary'] = array();
+			}
+		}
+		$items['title_prefix'] = array();
+		$items['title_suffix'] = array();
+		$items['main_menu'] = array();
+		$items['secondary_menu'] = array();
+		$items['action_links'] = array();
+	}
+}
+
+function restrict_ip_preprocess_html(&$items)
+{
+	if(restrict_ip_value())
+	{
+		if(isset($items['page']['page_top']))
+		{
+			unset($items['page']['page_top']);
+		}
+		if(isset($items['page']['page_top']))
+		{
+			unset($items['page']['page_bottom']);
+		}
+	}
+}
+
+function restrict_ip_js_alter(&$javascript)
+{
+	if(restrict_ip_value())
+	{
+		$restrict_ip_js_path = drupal_get_path('module', 'restrict_ip') . '/js/restrict_ip.js';
+		foreach(array_keys($javascript) as $key)
+		{
+			if($key != $restrict_ip_js_path && $key != 'misc/jquery.js')
+			{
+				unset($javascript[$key]);
+			}
+		}
 	}
 }
