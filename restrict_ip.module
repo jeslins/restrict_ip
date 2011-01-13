@@ -145,12 +145,16 @@ function restrict_ip_settings_validate($form, &$form_state)
 
 function restrict_ip_value($block = FALSE)
 {
-	static $block_ip;
+	$blocked = &drupal_static(__function__);
+	if(is_null($blocked))
+	{
+		$blocked = FALSE;
+	}
 	if($block)
 	{
-		$block_ip = TRUE;
+		$blocked = TRUE;
 	}
-	return $block_ip;
+	return $blocked;
 }
 
 /**
@@ -172,7 +176,7 @@ function restrict_ip_init()
 		$access_denied = TRUE;
 		foreach($ip_addresses as $ip_address)
 		{
-			if(!preg_match('~^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$~', trim($ip_address)) && !$ip_address == '::1')
+			if(!preg_match('~^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$~', trim($ip_address)) && $ip_address != '::1')
 			{
 				$pieces = explode('-', trim($ip_address));
 				$ip1_pieces = explode('.', trim($pieces[0]));
@@ -206,7 +210,7 @@ function restrict_ip_init()
 		}
 		if($access_denied)
 		{
-			if($_GET['q'] != 'restrict_ip/access_denied')
+			if(current_path() != 'restrict_ip/access_denied')
 			{
 				drupal_goto('restrict_ip/access_denied');
 			}
@@ -216,9 +220,13 @@ function restrict_ip_init()
 				$contact_mail = str_replace('@', '[at]', $contact_mail);
 			}
 			$contact_text = (strlen($contact_mail)) ? ' ' . t('If you feel this is in error, please contact an administrator at !email.', array('!email' => '<span id="restrict_ip_contact_mail">' . $contact_mail . '</span>')) : FALSE;
-			drupal_set_message(t('This site cannot be accessed from your IP address.') . $contact_text);
+			drupal_set_message(t('This site cannot be accessed from your IP address.') . $contact_text, 'error', FALSE);
 			restrict_ip_value(TRUE);
 			drupal_add_js(drupal_get_path('module', 'restrict_ip') . '/js/restrict_ip.js');
+		}
+		elseif(current_path() == drupal_get_normal_path('restrict_ip/access_denied'))
+		{
+			drupal_goto('<front>');
 		}
 	}
 }
