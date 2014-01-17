@@ -101,72 +101,76 @@ function restrict_ip_boot()
 	// Allow Drush requests regardless of IP.
 	if(!drupal_is_cli())
 	{
-		$ip_addresses = trim(variable_get('restrict_ip_address_list', ''));
+		// Get the value saved ot the system, and turn it into an array of IP addresses.
+		$ip_addresses = restrict_ip_sanitize_ip_list(variable_get('restrict_ip_address_list', ''));
 		// We only need to check IP addresses if at least one IP has been set to be whitelisted.
-		if(strlen($ip_addresses))
+		if(count($ip_addresses))
 		{
-			$ip_addresses = explode(PHP_EOL, $ip_addresses);
 			$user_ip = ip_address();
 			$access_denied = TRUE;
 			foreach($ip_addresses as $ip_address)
 			{
-				// Check if the given IP address matches the current user
-				if(trim($ip_address) == $user_ip)
+				$ip_address = trim($ip_address);
+				if(strlen($ip_address))
 				{
-					// The given IP is allowed - so we don't deny access (aka we allow it)
-					$access_denied = FALSE;
-					// No need to continue as user is allowed
-					break;
-				}
-
-				$pieces = explode('-', trim($ip_address));
-				// We only need to continue checking this IP address
-				// if it is a range of addresses
-				if(count($pieces) == 2)
-				{
-					$start_ip = $pieces[0];
-					$end_ip = $pieces[1];
-					$start_pieces = explode('.', $start_ip);
-					// If there are not 4 sections to the IP then its an invalid
-					// IPv4 address, and we don't need to continue checking
-					if(count($start_pieces) === 4)
+					// Check if the given IP address matches the current user
+					if($ip_address == $user_ip)
 					{
-						$user_pieces = explode('.', $user_ip);
-						$continue = TRUE;
-						// We compare the first three chunks of the first IP address
-						// With the first three chunks of the user's IP address
-						// If they are not the same, then the IP address is not within
-						// the range of IPs
-						for($i = 0; $i < 3; $i++)
+						// The given IP is allowed - so we don't deny access (aka we allow it)
+						$access_denied = FALSE;
+						// No need to continue as user is allowed
+						break;
+					}
+
+					$pieces = explode('-', $ip_address);
+					// We only need to continue checking this IP address
+					// if it is a range of addresses
+					if(count($pieces) == 2)
+					{
+						$start_ip = $pieces[0];
+						$end_ip = $pieces[1];
+						$start_pieces = explode('.', $start_ip);
+						// If there are not 4 sections to the IP then its an invalid
+						// IPv4 address, and we don't need to continue checking
+						if(count($start_pieces) === 4)
 						{
-							if((int) $user_pieces[$i] !== (int) $start_pieces[$i])
+							$user_pieces = explode('.', $user_ip);
+							$continue = TRUE;
+							// We compare the first three chunks of the first IP address
+							// With the first three chunks of the user's IP address
+							// If they are not the same, then the IP address is not within
+							// the range of IPs
+							for($i = 0; $i < 3; $i++)
 							{
-								// One of the chunks has failed, so we can stop
-								// checking this range
-								$continue = FALSE;
-								break;
+								if((int) $user_pieces[$i] !== (int) $start_pieces[$i])
+								{
+									// One of the chunks has failed, so we can stop
+									// checking this range
+									$continue = FALSE;
+									break;
+								}
 							}
-						}
-						// The first three chunks have past testing, so now we check the
-						// range given to see if the final chunk is in this range
-						if($continue)
-						{
-							// First we get the start of the range
-							$start_final_chunk = (int) array_pop($start_pieces);
-							$end_pieces = explode('.', $end_ip);
-							// Then we get the end of the range. This will work
-							// whether the user has entered XXX.XXX.XXX.XXX - XXX.XXX.XXX.XXX
-							// or XXX.XXX.XXX.XXX-XXX
-							$end_final_chunk = (int) array_pop($end_pieces);
-							// Now we get the user's final chunk
-							$user_final_chunk = (int) array_pop($user_pieces);
-							// And finally we check to see if the user's chunk lies in that range
-							if($user_final_chunk >= $start_final_chunk && $user_final_chunk <= $end_final_chunk)
+							// The first three chunks have past testing, so now we check the
+							// range given to see if the final chunk is in this range
+							if($continue)
 							{
-								// The user's IP lies in the range, so we don't deny access (ie - we grant it)
-								$access_denied = FALSE;
-								// No need to cintinue checking addresses as the user has been granted
-								break;
+								// First we get the start of the range
+								$start_final_chunk = (int) array_pop($start_pieces);
+								$end_pieces = explode('.', $end_ip);
+								// Then we get the end of the range. This will work
+								// whether the user has entered XXX.XXX.XXX.XXX - XXX.XXX.XXX.XXX
+								// or XXX.XXX.XXX.XXX-XXX
+								$end_final_chunk = (int) array_pop($end_pieces);
+								// Now we get the user's final chunk
+								$user_final_chunk = (int) array_pop($user_pieces);
+								// And finally we check to see if the user's chunk lies in that range
+								if($user_final_chunk >= $start_final_chunk && $user_final_chunk <= $end_final_chunk)
+								{
+									// The user's IP lies in the range, so we don't deny access (ie - we grant it)
+									$access_denied = FALSE;
+									// No need to cintinue checking addresses as the user has been granted
+									break;
+								}
 							}
 						}
 					}
@@ -180,6 +184,34 @@ function restrict_ip_boot()
 			}
 		}
 	}
+}
+
+/**
+ * Helper function that takes a string containing IP addresses on separate lines,
+ * Strips them of any code comments, trims them, and turns them into a nice array
+ * of sanitized elements. Note that the elements may or may not be IP addresses
+ * and if validation is necessary, the array returned from this function should
+ * be validated.
+ */
+function restrict_ip_sanitize_ip_list($raw_ip_addresses)
+{
+	$ip_addresses = trim($raw_ip_addresses);
+	$ip_addresses = preg_replace('/(\/\/|#).+/', '', $ip_addresses);
+	$ip_addresses = preg_replace('~/\*([^*]|[\r\n]|(\*+([^*/]|[\r\n])))*\*+/~', '', $ip_addresses);
+
+	$addresses = explode(PHP_EOL, $ip_addresses);
+
+	$return = array();
+	foreach($addresses as $ip_address)
+	{
+		$trimmed = trim($ip_address);
+		if(strlen($trimmed))
+		{
+			$return[] = $trimmed;
+		}
+	}
+
+	return $return;
 }
 
 /**

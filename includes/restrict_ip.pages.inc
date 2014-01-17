@@ -64,62 +64,82 @@ function restrict_ip_settings($form, &$form_state)
  */
 function restrict_ip_settings_validate($form, &$form_state)
 {
-	$ip_addresses = $form_state['values']['restrict_ip_address_list'];
-	if(strlen(trim($ip_addresses)))
+	$ip_addresses = restrict_ip_sanitize_ip_list($form_state['values']['restrict_ip_address_list']);
+	if(count($ip_addresses))
 	{
-		$ip_addresses = explode(PHP_EOL, trim($form_state['values']['restrict_ip_address_list']));
 		foreach($ip_addresses as $ip_address)
 		{
 			if($ip_address != '::1')
 			{
-				if(!preg_match('~^\b(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\b$~', trim($ip_address)))
+				// Check if IP address is a valid singular IP address (ie - not a range)
+				if(!preg_match('~^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$~', trim($ip_address)))
 				{
+					// IP address is not a single IP address, so we need to check if it's a range of addresses
 					$pieces = explode('-', $ip_address);
-					if(count($pieces) !== 2)
+					// We only need to continue checking this IP address
+					// if it is a range of addresses
+					if(count($pieces) == 2)
 					{
-						form_set_error('restrict_ip_address_list', t('!ip_address is not a valid IP address.', array('!ip_address' => $ip_address)));
+						$start_ip = trim($pieces[0]);
+						if(!preg_match('~^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$~', $start_ip))
+						{
+							form_set_error('restrict_ip_address_list', t('@ip_address is not a valid IP address.', array('@ip_address' => $start_ip)));
+						}
+						else
+						{
+							$start_pieces = explode('.', $start_ip);
+							$start_final_chunk = (int) array_pop($start_pieces);
+							$end_ip = trim($pieces[1]);
+							$end_valid = TRUE;
+							if(preg_match('~^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$~', $end_ip))
+							{
+								$end_valid = TRUE;
+								$end_pieces = explode('.', $end_ip);
+								for($i = 0; $i < 3; $i++)
+								{
+									if((int) $start_pieces[$i] != (int) $end_pieces[$i])
+									{
+										$end_valid = FALSE;
+									}
+								}
+								if($end_valid)
+								{
+									$end_final_chunk = (int) array_pop($end_pieces);
+									if($start_final_chunk > $end_final_chunk)
+									{
+										$end_valid = FALSE;
+									}
+								}
+							}
+							elseif(!is_numeric($end_ip))
+							{
+								$end_valid = FALSE;
+							}
+							else
+							{
+								if($end_ip > 255)
+								{
+									$end_valid = FALSE;
+								}
+								else
+								{
+									$start_final_chunk = array_pop($start_pieces);
+									if($start_final_chunk > $end_ip)
+									{
+										$end_valid = FALSE;
+									}
+								}
+							}
+
+							if(!$end_valid)
+							{
+								form_set_error('restrict_ip_address_list', t('@range is not a valid IP address range.', array('@range' => $ip_address)));
+							}
+						}
 					}
 					else
 					{
-						$ip1 = trim($pieces[0]);
-						$ip2 = trim($pieces[1]);
-						$both_valid = TRUE;	
-						if(!preg_match('~^\b(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\b$~', $ip1))
-						{
-							form_set_error('restrict_ip_address_list', t('!ip_address is not a valid IP address.', array('!ip_address' => $ip1)));
-							$both_valid = FALSE;
-						}
-						if(!preg_match('~^\b(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\b$~', $ip2))
-						{
-							form_set_error('restrict_ip_address_list', t('!ip_address is not a valid IP address.', array('!ip_address' => $ip2)));
-							$both_valid = FALSE;
-						}
-						if($both_valid)
-						{
-							$first_parts_equal = TRUE;
-							$last_part_ok = TRUE;
-							$ip1_pieces = explode('.', $ip1);
-							$ip2_pieces = explode('.', $ip2);
-							for($i = 0; $i < 3; $i++)
-							{
-								if($ip1_pieces[$i] != $ip2_pieces[$i])
-								{
-									$first_parts_equal = FALSE;
-									break;
-								}
-							}
-							if($first_parts_equal)
-							{
-								if($ip2_pieces[3] <= $ip1_pieces[3])
-								{
-									$last_part_ok = FALSE;
-								}
-							}
-							if(!$first_parts_equal || !$last_part_ok)
-							{
-								form_set_error('restrict_ip_address_list', t('@ip_address is not a valid range of IP addresses.', array('@ip_address' => $ip_address)));
-							}
-						}
+						form_set_error('restrict_ip_address_list', t('!ip_address is not a valid IP address or range of addresses.', array('!ip_address' => $ip_address)));
 					}
 				}
 			}
