@@ -53,6 +53,14 @@ function restrict_ip_settings($form, &$form_state)
 		),
 	);
 
+	$form['restrict_ip_custom_redirect'] = array
+	(
+		'#title' => t('Custom redirect'),
+		'#type' => 'textfield',
+		'#default_value' => variable_get('restrict_ip_custom_redirect', ''),
+		'#description' => t('Enter a path on your Drupal system, or a full URL, to redirect the user to a page other than the default path of "restrict_ip/access_denied"'),
+	);
+
 	return system_settings_form($form);
 }
 

@@ -257,9 +257,15 @@ function restrict_ip_page_alter(&$page)
 
 	if(ip_restricted())
 	{
-		if(current_path() != 'restrict_ip/access_denied')
+		$redirect_path = variable_get('restrict_ip_custom_redirect', FALSE);
+		if(!$redirect_path)
 		{
-			drupal_goto('restrict_ip/access_denied');
+			$redirect_path = 'restrict_ip/access_denied';
+		}
+
+		if(strpos(current_path(), $redirect_path) !== 0)
+		{
+			drupal_goto($redirect_path);
 		}
 
 		$regions = system_region_list($theme, REGIONS_ALL);
