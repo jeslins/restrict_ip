@@ -30,6 +30,17 @@ function restrict_ip_settings($form, &$form_state)
 		'#default_value' => trim(variable_get('restrict_ip_mail_address', '')),
 	);
 
+	if(module_exists('dblog'))
+	{
+		$form['restrict_ip_watchdog'] = array
+		(
+			'#title' => t('Log access attempts to watchdog'),
+			'#type' => 'checkbox',
+			'#default_value' => variable_get('restrict_ip_watchdog', FALSE),
+			'#description' => t('When this box is checked, attempts to access the site will be logged to the Drupal log (Recent log entries)'),
+		);
+	}
+
 	$form['restrict_ip_allow_role_bypass'] = array
 	(
 		'#title' => t('Allow restrict IP to be bypassed by role'),

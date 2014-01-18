@@ -265,6 +265,12 @@ function restrict_ip_page_alter(&$page)
 	{
 		if(current_path() != 'restrict_ip/access_denied')
 		{
+			if(module_exists('dblog') && variable_get('restrict_ip_watchdog', FALSE))
+			{
+				$current_path = drupal_get_path_alias(filter_xss(check_plain(current_path())));
+				watchdog('Restrict IP', 'Access to the path %path was blocked for the IP address %ip_address', array('%path' => $current_path, '%ip_address' => ip_address()));
+			}
+
 			drupal_goto('restrict_ip/access_denied');
 		}
 
