@@ -96,13 +96,19 @@ function ip_restricted($block = FALSE)
  */
 function restrict_ip_boot()
 {
-	global $user;
+	global $user, $conf;
 
 	// Allow Drush requests regardless of IP.
 	if(!drupal_is_cli())
 	{
 		// Get the value saved ot the system, and turn it into an array of IP addresses.
 		$ip_addresses = restrict_ip_sanitize_ip_list(variable_get('restrict_ip_address_list', ''));
+		// Add any whitelisted IPs from the settings.php file to the whitelisted array
+		if(isset($conf['restrict_ip_whitelist']))
+		{
+			$ip_addresses = array_merge($ip_addresses, restrict_ip_sanitize_ip_list(implode(PHP_EOL, $conf['restrict_ip_whitelist'])));
+		}
+
 		// We only need to check IP addresses if at least one IP has been set to be whitelisted.
 		if(count($ip_addresses))
 		{
