@@ -64,6 +64,72 @@ function restrict_ip_settings($form, &$form_state)
 		),
 	);
 
+	// Per-path visibility.
+	$form['restrict_ip_page_settings'] = array
+	(
+		'#type' => 'fieldset',
+		'#title' => t('Pages'),
+		'#collapsible' => TRUE,
+	);
+
+	$php_access = user_access('use PHP for settings');
+	$restrict_ip_restriction = variable_get('restrict_ip_restriction', 0);
+	$restrict_ip_pages = variable_get('restrict_ip_pages', '');
+	if(module_exists('php') && $restrict_ip_restriction == RESTRICT_IP_RESTRICTION_PHP && !$php_access)
+	{
+		$form['restrict_ip_page_settings']['restrict_ip_restriction'] = array
+		(
+			'#type' => 'value',
+			'#value' => RESTRICT_IP_RESTRICTION_PHP,
+		);
+		$form['restrict_ip_page_settings']['restrict_ip_pages'] = array
+		(
+			'#type' => 'value',
+			'#value' => $restrict_ip_pages,
+		);
+		$form['restrict_ip_page_settings']['php_access_denied'] = array
+		(
+			'#markup' => t('Visibility has been restricted by PHP, however "Use PHP for settings" permissions are required to edit these settings, and you do not have this permission. Please contact an administrator to change these settings.'),
+			'#prefix' => '<p>',
+			'#suffix' => '</p>',
+		);
+	}
+	else
+	{
+		$options = array
+		(
+			RESTRICT_IP_RESTRICTION_NOTLISTED => t('All pages except those listed'),
+			RESTRICT_IP_RESTRICTION_LISTED => t('Only the listed pages'),
+		);
+		$description = t("Specify pages by using their paths. Enter one path per line. The '*' character is a wildcard. Example paths are %blog for the blog page and %blog-wildcard for every personal blog. %front is the front page.", array('%blog' => 'blog', '%blog-wildcard' => 'blog/*', '%front' => '<front>'));
+
+		if (module_exists('php') && $php_access)
+		{
+			$options += array(RESTRICT_IP_RESTRICTION_PHP => t('Pages on which this PHP code returns <code>TRUE</code> (experts only)'));
+			$title = t('Restrict IP by pages or PHP code');
+			$description .= ' ' . t('If the PHP option is chosen, enter PHP code between %php. Note that executing incorrect PHP code can break your Drupal site.', array('%php' => '<?php ?>'));
+		}
+		else
+		{
+			$title = t('Restrict IP by pages');
+		}
+
+		$form['restrict_ip_page_settings']['restrict_ip_restriction'] = array
+		(
+			'#type' => 'radios',
+			'#title' => t('Restrict IP on specific pages'),
+			'#options' => $options,
+			'#default_value' => $restrict_ip_restriction,
+		);
+		$form['restrict_ip_page_settings']['restrict_ip_pages'] = array
+		(
+			'#type' => 'textarea',
+			'#title' => '<span class="element-invisible">' . $title . '</span>',
+			'#default_value' => $restrict_ip_pages,
+			'#description' => $description,
+		);
+	}
+
 	return system_settings_form($form);
 }
 

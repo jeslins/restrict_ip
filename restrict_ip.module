@@ -1,6 +1,21 @@
 <?php
 
 /**
+ * IPs should be restricted on every page except the listed pages.
+ */
+define('RESTRICT_IP_RESTRICTION_NOTLISTED', 0);
+
+/**
+ * IPs should only be restricted on the listed pages
+ */
+define('RESTRICT_IP_RESTRICTION_LISTED', 1);
+
+/**
+ * IPs should be restricted if the associated PHP code returns TRUE.
+ */
+define('RESTRICT_IP_RESTRICTION_PHP', 2);
+
+/**
  * Implementation of hook_menu()
  */
 function restrict_ip_menu()
@@ -96,97 +111,141 @@ function ip_restricted($block = FALSE)
  */
 function restrict_ip_boot()
 {
-	global $user, $conf;
+	global $user, $conf, $base_path;
 
 	// Allow Drush requests regardless of IP.
 	if(!drupal_is_cli())
 	{
-		// Get the value saved ot the system, and turn it into an array of IP addresses.
-		$ip_addresses = restrict_ip_sanitize_ip_list(variable_get('restrict_ip_address_list', ''));
-		// Add any whitelisted IPs from the settings.php file to the whitelisted array
-		if(isset($conf['restrict_ip_whitelist']))
+		if($_GET['q'] !== 'restrict_ip/access_denied')
 		{
-			$ip_addresses = array_merge($ip_addresses, restrict_ip_sanitize_ip_list(implode(PHP_EOL, $conf['restrict_ip_whitelist'])));
-		}
-
-		// We only need to check IP addresses if at least one IP has been set to be whitelisted.
-		if(count($ip_addresses))
-		{
-			$user_ip = ip_address();
-			$access_denied = TRUE;
-			foreach($ip_addresses as $ip_address)
+			// Match path if necessary.
+			$restrict_ip_restriction = variable_get('restrict_ip_restriction', 0);
+			$restrict_ip_pages = variable_get('restrict_ip_pages', '');
+			$page_match = TRUE;
+			if(strlen($restrict_ip_pages))
 			{
-				$ip_address = trim($ip_address);
-				if(strlen($ip_address))
+				// Convert path to lowercase. This allows comparison of the same path
+				// with different case. Ex: /Page, /page, /PAGE.
+				drupal_language_initialize();
+				require_once DRUPAL_ROOT . '/includes/unicode.inc';
+				require_once DRUPAL_ROOT . '/includes/path.inc';
+				$restrict_ip_pages = drupal_strtolower($restrict_ip_pages);
+				if($restrict_ip_restriction < RESTRICT_IP_RESTRICTION_PHP)
 				{
-					// Check if the given IP address matches the current user
-					if($ip_address == $user_ip)
+					// Convert the Drupal path to lowercase
+					$path = drupal_strtolower(drupal_get_path_alias($_GET['q']));
+					// Compare the lowercase internal and lowercase path alias (if any).
+					$page_match = drupal_match_path($path, $restrict_ip_pages);
+					if ($restrict_ip_pages != $_GET['q'])
 					{
-						// The given IP is allowed - so we don't deny access (aka we allow it)
-						$access_denied = FALSE;
-						// No need to continue as user is allowed
-						break;
+						$page_match = $page_match || drupal_match_path($_GET['q'], $restrict_ip_pages);
 					}
+					// When $restrict_ip_restriction has a value of 0 (RESTRICT_IP_RESTRICTION_NOTLISTED),
+					// the IPs are restricted on all pages except those listed in $restrict_ip_pages.
+					// When set to 1 (RESTRICT_IP_RESTRICTION_LISTED), IPs are restricted only on those
+					// pages listed in $restrict_ip_pages.
+					$page_match = !($restrict_ip_restriction xor $page_match);
+				}
+				elseif(module_exists('php'))
+				{
+					$page_match = php_eval($restrict_ip_pages);
+				}
+				else
+				{
+					$page_match = FALSE;
+				}
+			}
 
-					$pieces = explode('-', $ip_address);
-					// We only need to continue checking this IP address
-					// if it is a range of addresses
-					if(count($pieces) == 2)
+			if(!$page_match)
+			{
+				// Get the value saved to the system, and turn it into an array of IP addresses.
+				$ip_addresses = restrict_ip_sanitize_ip_list(variable_get('restrict_ip_address_list', ''));
+				// Add any whitelisted IPs from the settings.php file to the whitelisted array
+				if(isset($conf['restrict_ip_whitelist']))
+				{
+					$ip_addresses = array_merge($ip_addresses, restrict_ip_sanitize_ip_list(implode(PHP_EOL, $conf['restrict_ip_whitelist'])));
+				}
+
+				// We only need to check IP addresses if at least one IP has been set to be whitelisted.
+				if(count($ip_addresses))
+				{
+					$user_ip = ip_address();
+					$access_denied = TRUE;
+					foreach($ip_addresses as $ip_address)
 					{
-						$start_ip = $pieces[0];
-						$end_ip = $pieces[1];
-						$start_pieces = explode('.', $start_ip);
-						// If there are not 4 sections to the IP then its an invalid
-						// IPv4 address, and we don't need to continue checking
-						if(count($start_pieces) === 4)
+						$ip_address = trim($ip_address);
+						if(strlen($ip_address))
 						{
-							$user_pieces = explode('.', $user_ip);
-							$continue = TRUE;
-							// We compare the first three chunks of the first IP address
-							// With the first three chunks of the user's IP address
-							// If they are not the same, then the IP address is not within
-							// the range of IPs
-							for($i = 0; $i < 3; $i++)
+							// Check if the given IP address matches the current user
+							if($ip_address == $user_ip)
 							{
-								if((int) $user_pieces[$i] !== (int) $start_pieces[$i])
-								{
-									// One of the chunks has failed, so we can stop
-									// checking this range
-									$continue = FALSE;
-									break;
-								}
+								// The given IP is allowed - so we don't deny access (aka we allow it)
+								$access_denied = FALSE;
+								// No need to continue as user is allowed
+								break;
 							}
-							// The first three chunks have past testing, so now we check the
-							// range given to see if the final chunk is in this range
-							if($continue)
+
+							$pieces = explode('-', $ip_address);
+							// We only need to continue checking this IP address
+							// if it is a range of addresses
+							if(count($pieces) == 2)
 							{
-								// First we get the start of the range
-								$start_final_chunk = (int) array_pop($start_pieces);
-								$end_pieces = explode('.', $end_ip);
-								// Then we get the end of the range. This will work
-								// whether the user has entered XXX.XXX.XXX.XXX - XXX.XXX.XXX.XXX
-								// or XXX.XXX.XXX.XXX-XXX
-								$end_final_chunk = (int) array_pop($end_pieces);
-								// Now we get the user's final chunk
-								$user_final_chunk = (int) array_pop($user_pieces);
-								// And finally we check to see if the user's chunk lies in that range
-								if($user_final_chunk >= $start_final_chunk && $user_final_chunk <= $end_final_chunk)
+								$start_ip = $pieces[0];
+								$end_ip = $pieces[1];
+								$start_pieces = explode('.', $start_ip);
+								// If there are not 4 sections to the IP then its an invalid
+								// IPv4 address, and we don't need to continue checking
+								if(count($start_pieces) === 4)
 								{
-									// The user's IP lies in the range, so we don't deny access (ie - we grant it)
-									$access_denied = FALSE;
-									// No need to cintinue checking addresses as the user has been granted
-									break;
+									$user_pieces = explode('.', $user_ip);
+									$continue = TRUE;
+									// We compare the first three chunks of the first IP address
+									// With the first three chunks of the user's IP address
+									// If they are not the same, then the IP address is not within
+									// the range of IPs
+									for($i = 0; $i < 3; $i++)
+									{
+										if((int) $user_pieces[$i] !== (int) $start_pieces[$i])
+										{
+											// One of the chunks has failed, so we can stop
+											// checking this range
+											$continue = FALSE;
+											break;
+										}
+									}
+									// The first three chunks have past testing, so now we check the
+									// range given to see if the final chunk is in this range
+									if($continue)
+									{
+										// First we get the start of the range
+										$start_final_chunk = (int) array_pop($start_pieces);
+										$end_pieces = explode('.', $end_ip);
+										// Then we get the end of the range. This will work
+										// whether the user has entered XXX.XXX.XXX.XXX - XXX.XXX.XXX.XXX
+										// or XXX.XXX.XXX.XXX-XXX
+										$end_final_chunk = (int) array_pop($end_pieces);
+										// Now we get the user's final chunk
+										$user_final_chunk = (int) array_pop($user_pieces);
+										// And finally we check to see if the user's chunk lies in that range
+										if($user_final_chunk >= $start_final_chunk && $user_final_chunk <= $end_final_chunk)
+										{
+											// The user's IP lies in the range, so we don't deny access (ie - we grant it)
+											$access_denied = FALSE;
+											// No need to cintinue checking addresses as the user has been granted
+											break;
+										}
+									}
 								}
 							}
 						}
 					}
-				}
-			}
 
-			// The user has been denied access, so we need to set this value as so.
-			if($access_denied)
-			{
-				ip_restricted(TRUE);
+					// The user has been denied access, so we need to set this value as so.
+					if($access_denied)
+					{
+						ip_restricted(TRUE);
+					}
+				}
 			}
 		}
 	}
