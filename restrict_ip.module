@@ -118,14 +118,13 @@ function restrict_ip_boot()
 			$whitelisted_pages = variable_get('restrict_ip_page_whitelist', '');
 			if(strlen(trim($whitelisted_pages)))
 			{
-				$whitelisted_pages = explode(PHP_EOL, $whitelisted_pages);
+				$whitelisted_pages = explode(PHP_EOL, trim($whitelisted_pages));
 				for($i = 0; $i < count($whitelisted_pages); $i++)
 				{
 					$whitelisted_pages[$i] = trim($whitelisted_pages[$i]);
 				}
 
 				$current_path = $_GET['q'];
-
 				if(in_array($current_path, $whitelisted_pages))
 				{
 					$access_denied = FALSE;
@@ -291,6 +290,11 @@ function restrict_ip_page_alter(&$page)
 			{
 				$current_path = drupal_get_path_alias(filter_xss(check_plain(strtolower(current_path()))));
 				watchdog('Restrict IP', 'Access to the path %path was blocked for the IP address %ip_address', array('%path' => $current_path, '%ip_address' => ip_address()));
+			}
+
+			if(variable_get('restrict_ip_allow_role_bypass', FALSE) && variable_get('restrict_ip_bypass_action', 'provide_link_login_page') === 'redirect_login_page')
+			{
+				drupal_goto('user/login');
 			}
 
 			drupal_goto('restrict_ip/access_denied');

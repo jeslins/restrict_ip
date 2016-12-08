@@ -49,12 +49,17 @@ function restrict_ip_settings($form, &$form_state)
 		'#description' => t('When this box is checked, the permission "Bypass IP Restriction" will become available on the site !permissions page', array('!permissions' => user_access('administer permissions') ? l(t('permissions'), 'admin/people/permissions') : t('permissions'))),
 	);
 
-	$form['restrict_ip_login_link_denied_page'] = array
+	$form['restrict_ip_bypass_action'] = array
 	(
-		'#title' => t('Provide a link to the login page'),
-		'#type' => 'checkbox',
-		'#default_value' => variable_get('restrict_ip_login_link_denied_page', FALSE),
-		'#description' => t('When this box is checked, a link to the login page will be provided to users who have been blocked by IP, so that they can sign in. If their role allows it, they will then be given access to the site.'),
+		'#title' => t('Access denied action'),
+		'#type' => 'radios',
+		'#default_value' => variable_get('restrict_ip_bypass_action', 'provide_link_login_page'),
+		'#description' => t('Action to be performed when access is permitted by role, but the user is not logged in.'),
+		'#options' => array
+		(
+			'provide_link_login_page' => 'Provide a link to the login page',
+			'redirect_login_page' => 'Redirect to the login page',
+		),
 		'#states' => array
 		(
 			'visible' => array
@@ -210,7 +215,7 @@ function restrict_ip_access_denied_page()
 				'#suffix' => '</p>',
 			);
 		}
-		elseif(variable_get('restrict_ip_login_link_denied_page', FALSE))
+		elseif(variable_get('restrict_ip_bypass_action', 'provide_link_login_page') === 'provide_link_login_page')
 		{
 			$page['login_link'] = array
 			(
