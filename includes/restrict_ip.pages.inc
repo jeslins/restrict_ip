@@ -64,6 +64,14 @@ function restrict_ip_settings($form, &$form_state)
 		),
 	);
 
+	$form['restrict_ip_page_whitelist'] = array
+	(
+		'#title' => t('Whitelisted pages'),
+		'#description' => t('Enter a list of paths that will be allowed regardless of IP address. For example, to whitelist this page, you would enter <em>admin/config/people/restrict_ip</em>. Do not include domain names. Wildcards will not work at this time.'),
+		'#type' => 'textarea',
+		'#default_value' => variable_get('restrict_ip_page_whitelist'),
+	);
+
 	return system_settings_form($form);
 }
 
