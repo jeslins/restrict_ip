@@ -77,7 +77,9 @@ function ip_restricted($block = FALSE)
 		{
 			if(variable_get('restrict_ip_allow_role_bypass', FALSE))
 			{
-				if(user_access('Bypass IP Restriction') || in_array(current_path(), array('user', 'user/login', 'user/password', 'user/logout')) || strpos(current_path(), 'user/reset/') === 0)
+				$path = current_path();
+				$path = strtolower($path);
+				if(user_access('Bypass IP Restriction') || in_array($path, array('user', 'user/login', 'user/password', 'user/logout')) || strpos($path, 'user/reset/') === 0)
 				{
 					return FALSE;
 				}
@@ -263,11 +265,11 @@ function restrict_ip_page_alter(&$page)
 
 	if(ip_restricted())
 	{
-		if(current_path() != 'restrict_ip/access_denied')
+		if(strtolower(current_path()) != 'restrict_ip/access_denied')
 		{
 			if(module_exists('dblog') && variable_get('restrict_ip_watchdog', FALSE))
 			{
-				$current_path = drupal_get_path_alias(filter_xss(check_plain(current_path())));
+				$current_path = drupal_get_path_alias(filter_xss(check_plain(strtolower(current_path()))));
 				watchdog('Restrict IP', 'Access to the path %path was blocked for the IP address %ip_address', array('%path' => $current_path, '%ip_address' => ip_address()));
 			}
 
