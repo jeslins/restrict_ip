@@ -11,13 +11,21 @@ function restrict_ip_settings($form, &$form_state)
 	(
 		'#markup' => t('Enter the list of allowed IP addresses below'),
 		'#prefix' => '<h2>',
-		'#suffix' => '</h2><p><strong style="color:red">' . t("Warning: If you don't enter your current IP address into the list, you will immediately be locked out of the system upon save, and will not be able to access the system until you are in a location with an allowed IP address. Alternatively you can allow Restrict IP to be bypassed by role, and set at least one of your roles to be bypassed on the !permissions page.", array('!permissions' => user_access('administer permissions') ? l(t('permissions'), 'admin/people/permissions') : t('permissions'))) . '</strong></p><p><strong>' . t('Your current IP address is: !ip_address', array('!ip_address' => '<em>' . ip_address() . '</em>')) . '</strong></p>',
+		'#suffix' => '</h2><p><strong style="color:red">' . t("Warning: If you enable IP restriction, and don't enter your current IP address into the list, you will immediately be locked out of the system upon save, and will not be able to access the system until you are in a location with an allowed IP address. Alternatively you can allow Restrict IP to be bypassed by role, and set at least one of your roles to be bypassed on the !permissions page.", array('!permissions' => user_access('administer permissions') ? l(t('permissions'), 'admin/people/permissions') : t('permissions'))) . '</strong></p><p><strong>' . t('Your current IP address is: !ip_address', array('!ip_address' => '<em>' . ip_address() . '</em>')) . '</strong></p>',
+	);
+
+	$form['restrict_ip_enable'] = array
+	(
+		'#type' => 'checkbox',
+		'#title' => t('Enable Restricted IPs'),
+		'#description' => t('IP addresses will only be enabled when this option is selected'),
+		'#default_value' => variable_get('restrict_ip_enable', 0),
 	);
 
 	$form['restrict_ip_address_list'] = array
 	(
 		'#title' => t('Allowed IP Address List'),
-		'#description' => t('Enter the list of IP Addresses that are allowed to access the site. If this field is left empty, all IP addresses will be able to access the site. Enter one IP address per line. You may also enter a range of IP addresses in the format AAA.BBB.CCC.XXX - AAA.BBB.CCC.YYY'),
+		'#description' => t('Enter the list of IP Addresses that are allowed to access the site. Enter one IP address per line, in IPv4 or IPv6 format. You may also enter a range of IPv4 addresses in the format AAA.BBB.CCC.XXX - AAA.BBB.CCC.YYY'),
 		'#type' => 'textarea',
 		'#default_value' => variable_get('restrict_ip_address_list', ''),
 	);
@@ -69,12 +77,46 @@ function restrict_ip_settings($form, &$form_state)
 		),
 	);
 
+	$form['restrict_ip_white_black_list'] = array
+	(
+		'#type' => 'radios',
+		'#options' => array
+		(
+			t('Check IP addresses on all paths'),
+			t('Check IP addresses on all paths except the following'),
+			t('Check IP addresses only on the following paths'),
+		),
+		'#default_value' => variable_get('restrict_ip_white_black_list', 0),
+	);
+
 	$form['restrict_ip_page_whitelist'] = array
 	(
 		'#title' => t('Whitelisted pages'),
-		'#description' => t('Enter a list of paths that will be allowed regardless of IP address. For example, to whitelist this page, you would enter <em>admin/config/people/restrict_ip</em>. Do not include domain names. Wildcards will not work at this time.'),
+		'#description' => t('Enter a list of paths that will be allowed regardless of IP address. For example, to not check IP addresses on this page, you would enter <em>admin/config/people/restrict_ip</em>. All paths not included here will be checked. Do not include domain names. Wildcards in paths do not work.'),
 		'#type' => 'textarea',
-		'#default_value' => variable_get('restrict_ip_page_whitelist'),
+		'#default_value' => variable_get('restrict_ip_page_whitelist', ''),
+		'#states' => array
+		(
+			'visible' => array
+			(
+				':input[name="restrict_ip_white_black_list"]' => array('value' => 1),
+			),
+		),
+	);
+
+	$form['restrict_ip_page_blacklist'] = array
+	(
+		'#title' => t('Blacklisted pages'),
+		'#description' => t('Enter a list of paths on which IP addresses will be checked. For example, to check IP addresses on this page, you would enter <em>admin/config/people/restrict_ip</em>. All paths not included here will not be checked. Do not include domain names. Wildcards in paths do not work.'),
+		'#type' => 'textarea',
+		'#default_value' => variable_get('restrict_ip_page_blacklist'),
+		'#states' => array
+		(
+			'visible' => array
+			(
+				':input[name="restrict_ip_white_black_list"]' => array('value' => 2),
+			),
+		),
 	);
 
 	return system_settings_form($form);
@@ -180,14 +222,14 @@ function restrict_ip_settings_validate($form, &$form_state)
  */
 function restrict_ip_access_denied_page()
 {
-	if(!ip_restricted())
+	if(!isset($_SESSION['restrict_ip']) || !$_SESSION['restrict_ip'])
 	{
 		drupal_goto('<front>');
 	}
 
 	$page['access_denied'] = array
 	(
-		'#markup' => t('This site cannot be accessed from your IP address.'),
+		'#markup' => t('The page you are trying to access cannot be accessed from your IP address.'),
 		'#prefix' => '<p>',
 		'#suffix' => '</p>',
 	);
