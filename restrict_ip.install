@@ -5,13 +5,15 @@
  */
 function restrict_ip_uninstall()
 {
+	variable_del('restrict_ip_enable');
 	variable_del('restrict_ip_address_list');
-	variable_del('restrict_ip_allow_role_bypass');
-	variable_del('restrict_ip_bypass_action');
 	variable_del('restrict_ip_mail_address');
 	variable_del('restrict_ip_watchdog');
-	variable_del('restrict_ip_whitelist');
-	variable_del('restrict_ip_login_link_denied_page');
+	variable_del('restrict_ip_allow_role_bypass');
+	variable_del('restrict_ip_bypass_action');
+	variable_del('restrict_ip_white_black_list');
+	variable_del('restrict_ip_page_whitelist');
+	variable_del('restrict_ip_page_blacklist');
 }
 
 /**
