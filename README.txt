@@ -1,21 +1,27 @@
+Whitelisting IPs in settings.php
+
+Settings can be whitelisted in settings.php by creating the following array
+containing each IP addresses to be whitelisted.
+
+$config['restrict_ip.settings']['ip_whitelist'] = [
+  '111.111.111.1',
+  '111.111.111.2',
+];
+
+######################################
+#
+#  Questions and Answers
+#
+######################################
+
 Question: I locked myself out of my site, what do I do?
 
-Answer: Open restrict_ip.module and look for this line, in the function ip_restricted():
+Answer: Open add the following line to sites/default/settings.php
 
-if($block)
-{
-	$blocked = TRUE;
-}
-
-Change it to this:
-
-if($block)
-{
-	//$blocked = TRUE;
-}
+$config['restrict_ip.settings']['enable'] = FALSE;
 
 You will now be able to access the site (as will anyone else). Go to the configuration page,
-and fix your settings. Revert to the original code for the module to begin working again.
+and fix your settings. Remove this code when you are finished.
 
 --------------------------------------------
 
@@ -30,12 +36,13 @@ that your theme lies in. My examples below will be for a fictional theme, jaypan
 
 Next, open up the file named template.php in your theme. If this file does not exist,
 you can create it (though most themes will already have it). At the bottom of this file,
-add the code below, changing 'jaypanify' to your actual theme key, and changing the link
+add the hook below, changing 'hook' to your actual theme key, and changing the link
 from google.com to the URL to which you want to redirect your users:
 
-function jaypanify_restrict_ip_access_denied_page_alter(&$page)
+function hook_restrict_ip_access_denied_page_alter(&$page)
 {
-  drupal_goto('http://www.google.com/');
+	$response = new \Symfony\Component\HttpFoundation\RedirectResponse('https://www.google.com/');
+	$response->send();
 }
 
 Clear your Drupal cache, and the redirect should work.
@@ -49,22 +56,21 @@ whichever it is, all methods work under the same principle.
 
 First, you'll need the key of your theme (see the previous question for directions on how to get this).
 Next you'll need to open template.php, and add one of the following snippets to this file. Note that you
-will need to change 'jaypanify' to the acutal name of your theme.
+will need to change 'hook' to the acutal name of your theme.
 
 ***
 
 ADDING to the page:
 The following example shows how to add a new element to the page
 
-function jaypanify_restrict_ip_access_denied_page_alter(&$page)
+function hook_restrict_ip_access_denied_page_alter(&$page)
 {
   // note that 'some_key' is arbitrary, and you should use something descriptive instead
-  $page['some_key'] = array
-  (
+  $page['some_key'] = [
     '#markup' => t('This is some markup which I would like to add'),
     '#prefix' => '<p>', // You can use any tag you want here,
     '#suffix' => '</p>', // the closing tag needs to match the #prefix tag
-  );
+  ];
 }
 
 ***
@@ -72,7 +78,7 @@ function jaypanify_restrict_ip_access_denied_page_alter(&$page)
 REMOVING from the page:
 The following example shows how to remove the logout link for logged in users who are denied access
 
-function jaypanify_restrict_ip_access_denied_page_alter(&$page)
+function hook_restrict_ip_access_denied_page_alter(&$page)
 {
   if(isset($page['logout_link']))
   {
@@ -109,4 +115,3 @@ Please list the following:
 1) What you are trying to achieve
 2) The code you have tried that isn't working
 3) A description of how it is not working
-

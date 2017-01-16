@@ -2,7 +2,7 @@
 
 /**
  * @file
- * Hooks provided by the Restrict IP module.
+ *    Hooks provided by the Restrict IP module.
  */
 
 /**
@@ -17,20 +17,20 @@
  */
 function hook_restrict_ip_whitelisted_regions()
 {
-	return array('sidebar_first');
+	return ['sidebar_first'];
 }
 
 /**
  * Add js keys to be whitelisted even when the user has been denied access
  *
  * @return
- *   An array of keys representing javascripts to be allowed even when
+ *   An array of keys representing javascript files to be allowed even when
  *   the user is denied access by IP. These keys can be found by
  *   as the keys in hook_js_alter().
  */
 function hook_restrict_ip_whitelisted_js_keys()
 {
-	return array('misc/jquery.once.js');
+	return ['core/assets/vendor/jquery/jquery.js'];
 }
 
 /**
@@ -41,10 +41,9 @@ function hook_restrict_ip_whitelisted_js_keys()
  */
 function hook_restrict_ip_access_denied_page_alter(&$page)
 {
-	$page['additional_information'] = array
-	(
+	$page['additional_information'] = [
 		'#markup' => t('Additional information to be shown on the Restrict IP Access Denied page'),
 		'#prefix' => '<p>',
 		'#suffix' => '</p>',
-	);
+	];
 }
