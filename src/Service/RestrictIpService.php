@@ -81,7 +81,7 @@ class RestrictIpService implements RestrictIpServiceInterface
 	/**
 	 * {@inheritdoc}
 	 */
-	public function testForBlock()
+	public function testForBlock($runInCli = FALSE)
 	{
 		$this->blocked = FALSE;
 
@@ -90,7 +90,8 @@ class RestrictIpService implements RestrictIpServiceInterface
 			$this->blocked = TRUE;
 
 			// We don't want to check IP on CLI (likely drush) requests
-			if(PHP_SAPI != 'cli')
+			// unless explicitly declared to check by the $runInCli argument
+			if(PHP_SAPI != 'cli' || $runInCli)
 			{
 				$access_denied = TRUE;
 				if($this->allowAccessWhitelistedPath())
@@ -109,7 +110,10 @@ class RestrictIpService implements RestrictIpServiceInterface
 				// If the user has been denied access
 				if($access_denied)
 				{
-					$_SESSION['restrict_ip'] = TRUE;
+					if(PHP_SAPI != 'cli')
+					{
+						$_SESSION['restrict_ip'] = TRUE;
+					}
 				}
 				else
 				{
@@ -168,19 +172,24 @@ class RestrictIpService implements RestrictIpServiceInterface
 
 		if(is_null($allow_access))
 		{
-			$allow_access = FALSE;
+			$allow_access = [];
+		}
+
+		if(!isset($allow_access[$this->currentPath]))
+		{
+			$allow_access[$this->currentPath] = FALSE;
 
 			if($this->config->get('allow_role_bypass'))
 			{
-				$current_path = strtolower($this->currentPath);
+				$current_path = $this->currentPath;
 				if($this->currentUser->hasPermission('bypass ip restriction') || in_array($current_path, array('/user', '/user/login', '/user/password', '/user/logout')) || strpos($current_path, '/user/reset/') === 0)
 				{
-					$allow_access = TRUE;
+					$allow_access[$this->currentPath] = TRUE;
 				}
 			}
 		}
 
-		return $allow_access;
+		return $allow_access[$this->currentPath];
 	}
 
 	/**

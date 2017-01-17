@@ -16,8 +16,14 @@ interface RestrictIpServiceInterface
 	/**
 	 * Run all tests to see if the current user should be blocked or not
 	 * based on their IP address
+	 *
+	 * @param $runInCli bool
+	 *   Indicate whether the test should be run even when the code is being run through
+	 *   the command line. This will almost always be FALSE, to prevent the user from
+	 *   being blocked while running Drush commands, however this needs to be set as
+	 *   TRUE when running PHPUnit tests, in order to be able to run the code.
 	 */
-	public function testForBlock();
+	public function testForBlock($runInCli = FALSE);
 
 	/**
 	 * Takes a string containing potential IP addresses on separate lines,
