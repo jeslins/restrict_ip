@@ -1,0 +1,46 @@
+restrict_ip.settings:
+  type: config_object
+  label: 'Restrict IP settings'
+  mapping:
+    enable:
+      type: boolean
+      label: 'Enable module'
+    address_list:
+      type: config_object
+      label: 'Whitelisted IP address List'
+      mapping:
+        type: string
+        label: 'Whitelisted IP address'
+    mail_address:
+      type: string
+      label: 'Contact mail address to show to blocked users'
+    dblog:
+      type: boolean
+      label: 'Log blocked access attempts'
+    allow_role_bypass:
+      type: boolean
+      label: 'Allow IP blocking to be bypassed by roles'
+    bypass_action:
+      type: string
+      label: 'Action to perform for blocked users when bypassing by role is enabled'
+    white_black_list:
+      type: integer
+      label: 'Whether to use a path whitelist, blacklist, or check all pages'
+    page_whitelist:
+      type: config_object
+      label: 'List of paths on which IP checking should not occur'
+      mapping:
+        type: string
+        label: 'Whitelisted path'
+    page_blacklist:
+      type: config_object
+      label: 'List of paths on which IP checking should occur'
+      mapping:
+        type: string
+        label: 'Blacklisted path'
+    ip_whitelist:
+      type: config_object
+      label: 'List of IP addresses, set in settings.php, to be whitelisted'
+      mapping:
+        type: string
+        label: 'IP address'

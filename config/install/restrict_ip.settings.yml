@@ -1,6 +1,6 @@
 # D7 variable - restrict_ip_enable
 # Inidicates whether the module restrictions should be applied at runtime
-enable: 'true'
+enable: true
 
 # D7 variable - restrict_ip_address_list
 # A list of IP addresses to be whitelisted
@@ -12,11 +12,11 @@ mail_address: ''
 
 # D7 variable - restrict_ip_watchdog
 # A boolean indicating whether the or not to log access attempts to the drupal log
-dblog: 'false'
+dblog: false
 
 # D7 variable - restrict_ip_allow_role_bypass
 # A boolean indicating whether access restriction bypasses can be configured by role
-allow_role_bypass: 'false'
+allow_role_bypass: false
 
 # D7 variable - restrict_ip_bypass_action
 # A key indicating what action should be performed when bypasses are allowed by role, but users are not logged in
