@@ -54,4 +54,58 @@ interface RestrictIpServiceInterface
 	 *   The current path
 	 */
 	public function getCurrentPath();
+
+	/**
+	 * Get an array of all IP addresses that have been whitelisted through the admin interface
+	 *
+	 * @return array
+	 *   An array of addresses whitelisted through the admin interface.
+	 */
+	public function getWhitelistedIpAddresses();
+
+	/**
+	 * Save whitelisted IP addresses to the system
+	 *
+	 * @param array $ip_addresses
+	 *   An array of IP addresses to be saved
+	 * @param bool $overwriteExisting
+	 *   A boolean indicating whether existing IP addresses should be deleted before saving
+	 */
+	public function saveWhitelistedIpAddresses(array $ipAddresses, $overwriteExisting = TRUE);
+
+	/**
+	 * Get an array of all whitelisted pages
+	 *
+	 * @return array
+	 *   An array of paths that have been whitelisted
+	 */
+	public function getWhitelistedPagePaths();
+
+	/**
+	 * Save whitelisted page paths to the system
+	 *
+	 * @param array $whitelistedPaths
+	 *   An array of paths to be saved for whitelisting.
+	 * @param bool $overwriteExisting
+	 *   A boolean indicating whether existing paths should be deleted before saving
+	 */
+	public function saveWhitelistedPagePaths(array $whitelistedPaths, $overwriteExisting = TRUE);
+
+	/**
+	 * Get an array of all blacklisted pages
+	 *
+	 * @return array
+	 *   An array of paths that have been whitelisted
+	 */
+	public function getBlacklistedPagePaths();
+
+	/**
+	 * Save blacklisted page paths to the system
+	 *
+	 * @param array $blacklistedPaths
+	 *   An array of paths to be saved for blacklisting.
+	 * @param bool $overwriteExisting
+	 *   A boolean indicating whether existing paths should be deleted before saving
+	 */
+	public function saveBlacklistedPagePaths(array $blacklistedPaths, $overwriteExisting = TRUE);
 }

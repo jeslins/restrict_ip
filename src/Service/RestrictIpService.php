@@ -5,6 +5,7 @@ namespace Drupal\restrict_ip\Service;
 use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\Path\CurrentPathStack;
 use Drupal\Core\Session\AccountProxyInterface;
+use Drupal\restrict_ip\Mapper\RestrictIpMapperInterface;
 use Symfony\Component\HttpFoundation\RequestStack;
 
 class RestrictIpService implements RestrictIpServiceInterface
@@ -45,6 +46,13 @@ class RestrictIpService implements RestrictIpServiceInterface
 	private $currentUserIp;
 
 	/**
+	 * The Restrict IP data mapper
+	 *
+	 * @var \Drupal\restrict_ip\Mapper\RestrictIpMapperInterface
+	 */
+	protected $mapper;
+
+	/**
 	 * Constructs a RestrictIpService object
 	 *
 	 * @param \Drupal\Core\Session\AccountProxyInterface $currentUser
@@ -55,10 +63,13 @@ class RestrictIpService implements RestrictIpServiceInterface
 	 *   The Config Factory service
 	 * @param \Symfony\Component\HttpFoundation\RequestStack $requestStack
 	 *   The current HTTP request
+	 * @param \Drupal\restrict_ip\Mapper\RestrictIpMapperInterface $restrictIpMapper
+	 *   The Restrict IP data mapper object
 	 */
-	public function __construct(AccountProxyInterface $currentUser, CurrentPathStack $currentPathStack, ConfigFactoryInterface $configFactory, RequestStack $requestStack)
+	public function __construct(AccountProxyInterface $currentUser, CurrentPathStack $currentPathStack, ConfigFactoryInterface $configFactory, RequestStack $requestStack, RestrictIpMapperInterface $restrictIpMapper)
 	{
 		$this->currentUser = $currentUser;
+		$this->mapper = $restrictIpMapper;
 
 		$this->currentPath = strtolower($currentPathStack->getPath());
 		$this->config = $configFactory->get('restrict_ip.settings');
@@ -164,6 +175,60 @@ class RestrictIpService implements RestrictIpServiceInterface
 	}
 
 	/**
+	 * {@inheritdoc}
+	 */
+	public function getWhitelistedIpAddresses()
+	{
+		$ip_addresses = $this->mapper->getWhitelistedIpAddresses();
+
+		return is_array($ip_addresses) ? $ip_addresses : [];
+	}
+
+	/**
+	 * {@inheritdoc}
+	 */
+	public function saveWhitelistedIpAddresses(array $ipAddresses, $overwriteExisting = TRUE)
+	{
+		$this->mapper->saveWhitelistedIpAddresses($ipAddresses, $overwriteExisting);
+	}
+
+	/**
+	 * {@inheritdoc}
+	 */
+	public function getWhitelistedPagePaths()
+	{
+		$whitelisted_paths = $this->mapper->getWhitelistedPaths();
+
+		return is_array($whitelisted_paths) ? $whitelisted_paths : [];
+	}
+
+	/**
+	 * {@inheritdoc}
+	 */
+	public function saveWhitelistedPagePaths(array $whitelistedPaths, $overwriteExisting = TRUE)
+	{
+		$this->mapper->saveWhitelistedPaths($whitelistedPaths, $overwriteExisting);
+	}
+
+	/**
+	 * {@inheritdoc}
+	 */
+	public function getBlacklistedPagePaths()
+	{
+		$blacklisted_paths = $this->mapper->getBlacklistedPaths();
+
+		return is_array($blacklisted_paths) ? $blacklisted_paths : [];
+	}
+
+	/**
+	 * {@inheritdoc}
+	 */
+	public function saveBlacklistedPagePaths(array $blacklistedPaths, $overwriteExisting = TRUE)
+	{
+		$this->mapper->saveBlacklistedPaths($blacklistedPaths, $overwriteExisting);
+	}
+
+	/**
 	 * Test to see if access should be granted based on 
 	 */
 	private function allowAccessByPermission()
@@ -182,7 +247,7 @@ class RestrictIpService implements RestrictIpServiceInterface
 			if($this->config->get('allow_role_bypass'))
 			{
 				$current_path = $this->currentPath;
-				if($this->currentUser->hasPermission('bypass ip restriction') || in_array($current_path, array('/user', '/user/login', '/user/password', '/user/logout')) || strpos($current_path, '/user/reset/') === 0)
+				if($this->currentUser->hasPermission('bypass ip restriction') || in_array($current_path, array('/user', '/user/login', '/user/password', '/user/logout', '/user/register')) || strpos($current_path, '/user/reset/') === 0)
 				{
 					$allow_access[$this->currentPath] = TRUE;
 				}
@@ -200,7 +265,7 @@ class RestrictIpService implements RestrictIpServiceInterface
 		$allow_access = FALSE;
 		if($this->config->get('white_black_list') == 1)
 		{
-			$whitelisted_pages = $this->config->get('page_whitelist');
+			$whitelisted_pages = $this->getWhitelistedPagePaths();
 			if(count($whitelisted_pages) && in_array($this->currentPath, $whitelisted_pages))
 			{
 				$allow_access = TRUE;
@@ -218,7 +283,7 @@ class RestrictIpService implements RestrictIpServiceInterface
 		$allow_access = FALSE;
 		if($this->config->get('white_black_list') == 2)
 		{
-			$blacklisted_pages = $this->config->get('page_blacklist');
+			$blacklisted_pages = $this->getBlacklistedPagePaths();
 			if(count($blacklisted_pages) && !in_array($this->currentPath, $blacklisted_pages))
 			{
 				$allow_access = TRUE;
@@ -255,7 +320,7 @@ class RestrictIpService implements RestrictIpServiceInterface
 	private function buildWhitelistedIpAddresses()
 	{
 		// Get the value saved to the system, and turn it into an array of IP addresses.
-		$ip_addresses = $this->config->get('address_list');
+		$ip_addresses = $this->getWhitelistedIpAddresses();
 
 		// Add any whitelisted IPs from the settings.php file to the whitelisted array
 		$ip_whitelist = $this->config->get('ip_whitelist');

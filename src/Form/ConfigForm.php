@@ -35,6 +35,27 @@ class ConfigForm extends ConfigFormBase
 	protected $restrictIpService;
 
 	/**
+	 * The IP addresses that have been whitelisted by the module
+	 *
+	 * @var array
+	 */
+	protected $whitelistedIpAddresses;
+
+	/**
+	 * The page paths that have been whitelisted by the module
+	 *
+	 * @var array
+	 */
+	protected $whitelistedPagePaths;
+
+	/**
+	 * The page paths that have been blacklisted by the module
+	 *
+	 * @var array
+	 */
+	protected $blacklistedPagePaths;
+
+	/**
 	 * Creates the Restrict IP ConfigForm object
 	 *
 	 * @param \Drupal\Core\Session\AccountProxyInterface $currentUser
@@ -49,6 +70,10 @@ class ConfigForm extends ConfigFormBase
 		$this->currentUser = $currentUser;
 		$this->moduleHandler = $moduleHandler;
 		$this->restrictIpService = $restrictIpService;
+
+		$this->whitelistedIpAddresses = $this->restrictIpService->getWhitelistedIpAddresses();
+		$this->whitelistedPagePaths = $this->restrictIpService->getWhitelistedPagePaths();
+		$this->blacklistedPagePaths = $this->restrictIpService->getBlacklistedPagePaths();
 	}
 
 	/**
@@ -124,7 +149,7 @@ class ConfigForm extends ConfigFormBase
 			'#title' => $this->t('Allowed IP Address List'),
 			'#description' => $this->t('Enter the list of IP Addresses that are allowed to access the site. Enter one IP address per line, in IPv4 or IPv6 format. You may also enter a range of IPv4 addresses in the format AAA.BBB.CCC.XXX - AAA.BBB.CCC.YYY'),
 			'#type' => 'textarea',
-			'#default_value' => implode(PHP_EOL, $config->get('address_list')),
+			'#default_value' => implode(PHP_EOL, $this->whitelistedIpAddresses),
 		];
 
 		$form['mail_address'] = [
@@ -169,7 +194,7 @@ class ConfigForm extends ConfigFormBase
 			],
 			'#states' => [
 				'visible' => [
-					'#edit-restrict-ip-allow-role-bypass' => ['checked' => TRUE],
+					'#edit-allow-role-bypass' => ['checked' => TRUE],
 				],
 			],
 		];
@@ -188,7 +213,7 @@ class ConfigForm extends ConfigFormBase
 			'#title' => $this->t('Whitelisted pages'),
 			'#description' => $this->t('Enter a list of paths that will be allowed regardless of IP address. For example, to not check IP addresses on this page, you would enter <em>admin/config/people/restrict_ip</em>. All paths not included here will be checked. Do not include domain names. Wildcards in paths do not work.'),
 			'#type' => 'textarea',
-			'#default_value' => implode(PHP_EOL, $config->get('page_whitelist')),
+			'#default_value' => implode(PHP_EOL, $this->whitelistedPagePaths),
 			'#states' => [
 				'visible' => [
 					':input[name="white_black_list"]' => ['value' => 1],
@@ -200,7 +225,7 @@ class ConfigForm extends ConfigFormBase
 			'#title' => $this->t('Blacklisted pages'),
 			'#description' => $this->t('Enter a list of paths on which IP addresses will be checked. For example, to check IP addresses on this page, you would enter <em>admin/config/people/restrict_ip</em>. All paths not included here will not be checked. Do not include domain names. Wildcards in paths do not work.'),
 			'#type' => 'textarea',
-			'#default_value' => implode(PHP_EOL, $config->get('page_blacklist')),
+			'#default_value' => implode(PHP_EOL, $this->blacklistedPagePaths),
 			'#states' => [
 				'visible' => [
 					':input[name="white_black_list"]' => ['value' => 2],
@@ -315,10 +340,7 @@ class ConfigForm extends ConfigFormBase
 				}
 			}
 
-			if(count($pages))
-			{
-				$form_state->setValue('page_whitelist', $pages);
-			}
+			$form_state->setValue('page_whitelist', $pages);
 		}
 		else
 		{
@@ -345,10 +367,7 @@ class ConfigForm extends ConfigFormBase
 				}
 			}
 
-			if(count($pages))
-			{
-				$form_state->setValue('page_blacklist', $pages);
-			}
+			$form_state->setValue('page_blacklist', $pages);
 		}
 		else
 		{
@@ -360,15 +379,16 @@ class ConfigForm extends ConfigFormBase
 	{
 		$this->config('restrict_ip.settings')
 			->set('enable', (bool) $form_state->getValue('enable'))
-			->set('address_list', $this->restrictIpService->cleanIpAddressInput($form_state->getValue('address_list')))
 			->set('mail_address', (string) $form_state->getValue('mail_address'))
 			->set('dblog', (bool) $form_state->getValue('dblog'))
 			->set('allow_role_bypass', (bool) $form_state->getValue('allow_role_bypass'))
 			->set('bypass_action', (string) $form_state->getValue('bypass_action'))
 			->set('white_black_list', (int) $form_state->getValue('white_black_list'))
-			->set('page_whitelist', $form_state->getValue('page_whitelist'))
-			->set('page_blacklist', $form_state->getValue('page_blacklist'))
 			->save();
+
+		$this->restrictIpService->saveWhitelistedIpAddresses($this->restrictIpService->cleanIpAddressInput($form_state->getValue('address_list')));
+		$this->restrictIpService->saveWhitelistedPagePaths($form_state->getValue('page_whitelist'));
+		$this->restrictIpService->saveBlacklistedPagePaths($form_state->getValue('page_blacklist'));
 
 		parent::submitForm($form, $form_state);
 	}

@@ -1,8 +1,14 @@
 parameters:
+  restrict_ip.mapper.class: Drupal\restrict_ip\Mapper\RestrictIpMapper
   restrict_ip.service.class: Drupal\restrict_ip\Service\RestrictIpService
   restrict_ip.event_subscriber.class: Drupal\restrict_ip\EventSubscriber\RestrictIpEventSubscriber
 
 services:
+  restrict_ip.mapper:
+    class: %restrict_ip.mapper.class%
+    arguments:
+      - @database
+
   restrict_ip.service:
     class: %restrict_ip.service.class%
     arguments:
@@ -10,6 +16,7 @@ services:
       - @path.current
       - @config.factory
       - @request_stack
+      - @restrict_ip.mapper
 
   restrict_ip.event_subscriber:
     class: %restrict_ip.event_subscriber.class%

@@ -1,10 +1,6 @@
 # D7 variable - restrict_ip_enable
 # Inidicates whether the module restrictions should be applied at runtime
-enable: true
-
-# D7 variable - restrict_ip_address_list
-# A list of IP addresses to be whitelisted
-address_list: []
+enable: false
 
 # D7 variable - restrict_ip_mail_address
 # An optional email address that can be displayed to users when access is restricted
@@ -28,15 +24,3 @@ bypass_action: 'provide_link_login_page'
 #   1 = check on all paths except the paths given in page_whitelist
 #   2 = check only on paths given in page_blacklist
 white_black_list: 0
-
-# D7 variable - restrict_ip_page_whitelist
-# An array of paths on which are whitelisted and should not have access restrictions checked
-page_whitelist: []
-
-#D7 variable - restrict_ip_page_blacklist
-# An array of paths on which are blacklisted and require access restrictions to be checked
-page_blacklist: []
-
-#D7 variable - restrict_ip_whitelist
-# An array of IP addresses to be whitelisted. This is only set in settings.php and is not tied into the Drupal UI
-ip_whitelist: []
