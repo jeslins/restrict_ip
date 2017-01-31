@@ -1,6 +1,6 @@
 <?php
 
-namespace Drupal\Tests\restrict_ip\Service;
+namespace Drupal\Tests\restrict_ip\Unit\Service;
 
 use Drupal\Core\DependencyInjection\ContainerBuilder;
 use Drupal\Tests\UnitTestCase;
