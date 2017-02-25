@@ -4,6 +4,7 @@ namespace Drupal\restrict_ip\Service;
 
 use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\Path\CurrentPathStack;
+use Drupal\Core\Path\PathMatcherInterface;
 use Drupal\Core\Session\AccountProxyInterface;
 use Drupal\restrict_ip\Mapper\RestrictIpMapperInterface;
 use Symfony\Component\HttpFoundation\RequestStack;
@@ -53,6 +54,13 @@ class RestrictIpService implements RestrictIpServiceInterface
 	protected $mapper;
 
 	/**
+	 * The Path Matcher service
+	 *
+	 * @var \Drupal\Core\Path\PathMatcherInterface
+	 */
+	protected $pathMatcher;
+
+	/**
 	 * Constructs a RestrictIpService object
 	 *
 	 * @param \Drupal\Core\Session\AccountProxyInterface $currentUser
@@ -65,11 +73,14 @@ class RestrictIpService implements RestrictIpServiceInterface
 	 *   The current HTTP request
 	 * @param \Drupal\restrict_ip\Mapper\RestrictIpMapperInterface $restrictIpMapper
 	 *   The Restrict IP data mapper object
+	 * @param \Drupal\Core\Path\PathMatcherInterface $pathMatcher
+	 *   The Path Matcher service
 	 */
-	public function __construct(AccountProxyInterface $currentUser, CurrentPathStack $currentPathStack, ConfigFactoryInterface $configFactory, RequestStack $requestStack, RestrictIpMapperInterface $restrictIpMapper)
+	public function __construct(AccountProxyInterface $currentUser, CurrentPathStack $currentPathStack, ConfigFactoryInterface $configFactory, RequestStack $requestStack, RestrictIpMapperInterface $restrictIpMapper, PathMatcherInterface $pathMatcher)
 	{
 		$this->currentUser = $currentUser;
 		$this->mapper = $restrictIpMapper;
+		$this->pathMatcher = $pathMatcher;
 
 		$this->currentPath = strtolower($currentPathStack->getPath());
 		$this->config = $configFactory->get('restrict_ip.settings');
@@ -266,7 +277,20 @@ class RestrictIpService implements RestrictIpServiceInterface
 		if($this->config->get('white_black_list') == 1)
 		{
 			$whitelisted_pages = $this->getWhitelistedPagePaths();
-			if(count($whitelisted_pages) && in_array($this->currentPath, $whitelisted_pages))
+			$current_whitelist = FALSE;
+
+			if(count($whitelisted_pages))
+			{
+				foreach($whitelisted_pages as $whitelisted_page)
+				{
+					if($this->pathMatcher->matchPath($this->currentPath, $whitelisted_page))
+					{
+						$current_whitelist = TRUE;
+					}
+				}
+			}
+
+			if($current_whitelist)
 			{
 				$allow_access = TRUE;
 			}
@@ -284,7 +308,20 @@ class RestrictIpService implements RestrictIpServiceInterface
 		if($this->config->get('white_black_list') == 2)
 		{
 			$blacklisted_pages = $this->getBlacklistedPagePaths();
-			if(count($blacklisted_pages) && !in_array($this->currentPath, $blacklisted_pages))
+			$current_blacklist = FALSE;
+
+			if(count($blacklisted_pages))
+			{
+				foreach($blacklisted_pages as $blacklisted_page)
+				{
+					if($this->pathMatcher->matchPath($this->currentPath, $blacklisted_page))
+					{
+						$current_blacklist = TRUE;
+					}
+				}
+			}
+
+			if(!$current_blacklist)
 			{
 				$allow_access = TRUE;
 			}

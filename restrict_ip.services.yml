@@ -17,6 +17,7 @@ services:
       - @config.factory
       - @request_stack
       - @restrict_ip.mapper
+      - @path.matcher
 
   restrict_ip.event_subscriber:
     class: '%restrict_ip.event_subscriber.class%'
