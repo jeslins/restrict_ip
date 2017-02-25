@@ -17,6 +17,7 @@ class RestrictIpServiceTest extends UnitTestCase
 	protected $requestStack;
 	protected $request;
 	protected $mapper;
+	protected $pathMatcher;
 
 	/**
 	 * {@inheritdoc}
@@ -50,6 +51,10 @@ class RestrictIpServiceTest extends UnitTestCase
 		$this->mapper->expects($this->any())
 			->method('getBlacklistedPaths')
 			->willReturn(['/node/1']);
+
+		$this->pathMatcher = $this->getMockbuilder('Drupal\Core\Path\PathMatcherInterface')
+			->disableOriginalConstructor()
+			->getMock();
 	}
 
 	/**
@@ -76,7 +81,7 @@ class RestrictIpServiceTest extends UnitTestCase
 
 		$configFactory = $this->getConfigFactory(['allow_role_bypass' => TRUE]);
 
-		$restrictIpService = New RestrictIpService($this->currentUser, $this->currentPathStack, $configFactory, $this->requestStack, $this->mapper);
+		$restrictIpService = New RestrictIpService($this->currentUser, $this->currentPathStack, $configFactory, $this->requestStack, $this->mapper, $this->pathMatcher);
 
 		$user_is_blocked = $restrictIpService->userIsBlocked();
 		$this->assertFalse($user_is_blocked, 'User is not blocked when they have the permission bypass access restriction');
@@ -106,7 +111,7 @@ class RestrictIpServiceTest extends UnitTestCase
 
 		$configFactory = $this->getConfigFactory(['allow_role_bypass' => TRUE]);
 
-		$restrictIpService = New RestrictIpService($this->currentUser, $this->currentPathStack, $configFactory, $this->requestStack, $this->mapper);
+		$restrictIpService = New RestrictIpService($this->currentUser, $this->currentPathStack, $configFactory, $this->requestStack, $this->mapper, $this->pathMatcher);
 
 		$user_is_blocked = $restrictIpService->userIsBlocked();
 		$this->assertSame($expectedResult, $user_is_blocked, 'User is not blocked when they are on the allowed path: ' . $path);
@@ -131,7 +136,7 @@ class RestrictIpServiceTest extends UnitTestCase
 	 * @covers ::testForBlock
 	 * @dataProvider whitelistDataProvider
 	 */
-	public function testWhitelist($pathToCheck, $expectedResult, $message)
+	public function testWhitelist($pathToCheck, $pathAllowed, $expectedResult, $message)
 	{
 		$this->currentPathStack->expects($this->at(0))
 			->method('getPath')
@@ -150,9 +155,13 @@ class RestrictIpServiceTest extends UnitTestCase
 			'white_black_list' => 1,
 		]);
 
-		$restrictIpService = New RestrictIpService($this->currentUser, $this->currentPathStack, $configFactory, $this->requestStack, $this->mapper);
+		$this->pathMatcher->expects($this->at(0))
+			->method('matchPath')
+			->willReturn($pathAllowed);
 
-		$pages = $restrictIpService->testForBlock(TRUE);
+		$restrictIpService = New RestrictIpService($this->currentUser, $this->currentPathStack, $configFactory, $this->requestStack, $this->mapper, $this->pathMatcher);
+
+		$restrictIpService->testForBlock(TRUE);
 
 		$this->assertSame($expectedResult, $restrictIpService->userIsBlocked(), $message);
 	}
@@ -163,8 +172,8 @@ class RestrictIpServiceTest extends UnitTestCase
 	public function whitelistDataProvider()
 	{
 		return [
-			['/node/1', FALSE, 'User is allowed on whitelisted path'],
-			['/node/2', TRUE, 'User is blocked on non-whitelisted path'],
+			['/node/1', TRUE, FALSE, 'User is allowed on whitelisted path'],
+			['/node/2', FALSE, TRUE, 'User is blocked on non-whitelisted path'],
 		];
 	}
 
@@ -172,7 +181,7 @@ class RestrictIpServiceTest extends UnitTestCase
 	 * @covers ::testForBlock
 	 * @dataProvider blacklistDataProvider
 	 */
-	public function testBlacklist($pathToCheck, $expectedResult, $message)
+	public function testBlacklist($pathToCheck, $pathNotAllowed, $expectedResult, $message)
 	{
 		$this->currentPathStack->expects($this->at(0))
 			->method('getPath')
@@ -191,7 +200,11 @@ class RestrictIpServiceTest extends UnitTestCase
 			'white_black_list' => 2,
 		]);
 
-		$restrictIpService = New RestrictIpService($this->currentUser, $this->currentPathStack, $configFactory, $this->requestStack, $this->mapper);
+		$this->pathMatcher->expects($this->at(0))
+			->method('matchPath')
+			->willReturn($pathNotAllowed);
+
+		$restrictIpService = New RestrictIpService($this->currentUser, $this->currentPathStack, $configFactory, $this->requestStack, $this->mapper, $this->pathMatcher);
 		$restrictIpService->testForBlock(TRUE);
 
 		$this->assertSame($expectedResult, $restrictIpService->userIsBlocked(), $message);
@@ -203,8 +216,8 @@ class RestrictIpServiceTest extends UnitTestCase
 	public function blacklistDataProvider()
 	{
 		return [
-			['/node/1', TRUE, 'User is blocked on blacklisted path'],
-			['/node/2', FALSE, 'User is not blocked on non-blacklisted path'],
+			['/node/1', TRUE, TRUE, 'User is blocked on blacklisted path'],
+			['/node/2', FALSE, FALSE, 'User is not blocked on non-blacklisted path'],
 		];
 	}
 
@@ -239,7 +252,7 @@ class RestrictIpServiceTest extends UnitTestCase
 			->method('getWhitelistedIpAddresses')
 			->willReturn(['::1']);
 
-		$restrictIpService = New RestrictIpService($this->currentUser, $this->currentPathStack, $configFactory, $this->requestStack, $mapper);
+		$restrictIpService = New RestrictIpService($this->currentUser, $this->currentPathStack, $configFactory, $this->requestStack, $mapper, $this->pathMatcher);
 		$restrictIpService->testForBlock(TRUE);
 
 		$this->assertSame($expectedResult, $restrictIpService->userIsBlocked(), $message);
@@ -274,7 +287,7 @@ class RestrictIpServiceTest extends UnitTestCase
 			->method('getCurrentRequest')
 			->willReturn($this->request);
 
-		$restrictIpService = New RestrictIpService($this->currentUser, $this->currentPathStack, $configFactory, $this->requestStack, $this->mapper);
+		$restrictIpService = New RestrictIpService($this->currentUser, $this->currentPathStack, $configFactory, $this->requestStack, $this->mapper, $this->pathMatcher);
 		$restrictIpService->testForBlock(TRUE);
 
 		$this->assertSame($expectedResult, $restrictIpService->userIsBlocked(), $message);
@@ -319,7 +332,7 @@ class RestrictIpServiceTest extends UnitTestCase
 		
 		$configFactory = $this->getConfigFactory([]);
 
-		$restrictIpService = New RestrictIpService($this->currentUser, $this->currentPathStack, $configFactory, $this->requestStack, $this->mapper);
+		$restrictIpService = New RestrictIpService($this->currentUser, $this->currentPathStack, $configFactory, $this->requestStack, $this->mapper, $this->pathMatcher);
 
 		$this->assertSame($expectedResult, $restrictIpService->cleanIpAddressInput($input), $message);
 	}
@@ -370,7 +383,7 @@ class RestrictIpServiceTest extends UnitTestCase
 		
 		$configFactory = $this->getConfigFactory([]);
 
-		$restrictIpService = New RestrictIpService($this->currentUser, $this->currentPathStack, $configFactory, $this->requestStack, $this->mapper);
+		$restrictIpService = New RestrictIpService($this->currentUser, $this->currentPathStack, $configFactory, $this->requestStack, $this->mapper, $this->pathMatcher);
 
 		$this->assertSame('::1', $restrictIpService->getCurrentUserIp(), 'User IP address is properly reported');
 	}
@@ -394,7 +407,7 @@ class RestrictIpServiceTest extends UnitTestCase
 		
 		$configFactory = $this->getConfigFactory([]);
 
-		$restrictIpService = New RestrictIpService($this->currentUser, $this->currentPathStack, $configFactory, $this->requestStack, $this->mapper);
+		$restrictIpService = New RestrictIpService($this->currentUser, $this->currentPathStack, $configFactory, $this->requestStack, $this->mapper, $this->pathMatcher);
 
 		$this->assertSame('/some/path', $restrictIpService->getCurrentPath(), 'Correct current path is properly reported');
 	}
