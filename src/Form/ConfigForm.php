@@ -211,7 +211,7 @@ class ConfigForm extends ConfigFormBase
 
 		$form['page_whitelist'] = [
 			'#title' => $this->t('Whitelisted pages'),
-			'#description' => $this->t('Enter a list of paths that will be allowed regardless of IP address. For example, to not check IP addresses on this page, you would enter <em>admin/config/people/restrict_ip</em>. All paths not included here will be checked. Do not include domain names. Wildcards in paths do not work.'),
+			'#description' => $this->t("Enter a list of paths that will be allowed regardless of IP address. For example, to not check IP addresses on this page, you would enter <em>admin/config/people/restrict_ip</em>. All paths not included here will be checked. Do not include domain names.  The '*' character is a wildcard. An example path is /user/* for every user page."),
 			'#type' => 'textarea',
 			'#default_value' => implode(PHP_EOL, $this->whitelistedPagePaths),
 			'#states' => [
@@ -223,7 +223,7 @@ class ConfigForm extends ConfigFormBase
 
 		$form['page_blacklist'] = [
 			'#title' => $this->t('Blacklisted pages'),
-			'#description' => $this->t('Enter a list of paths on which IP addresses will be checked. For example, to check IP addresses on this page, you would enter <em>admin/config/people/restrict_ip</em>. All paths not included here will not be checked. Do not include domain names. Wildcards in paths do not work.'),
+			'#description' => $this->t("Enter a list of paths on which IP addresses will be checked. For example, to check IP addresses on this page, you would enter <em>admin/config/people/restrict_ip</em>. All paths not included here will not be checked. Do not include domain names.  The '*' character is a wildcard. An example path is /user/* for every user page."),
 			'#type' => 'textarea',
 			'#default_value' => implode(PHP_EOL, $this->blacklistedPagePaths),
 			'#states' => [
