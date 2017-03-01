@@ -7,25 +7,25 @@ services:
   restrict_ip.mapper:
     class: '%restrict_ip.mapper.class%'
     arguments:
-      - @database
+      - '@database'
 
   restrict_ip.service:
     class: '%restrict_ip.service.class%'
     arguments:
-      - @current_user
-      - @path.current
-      - @config.factory
-      - @request_stack
-      - @restrict_ip.mapper
-      - @path.matcher
+      - '@current_user'
+      - '@path.current'
+      - '@config.factory'
+      - '@request_stack'
+      - '@restrict_ip.mapper'
+      - '@path.matcher'
 
   restrict_ip.event_subscriber:
     class: '%restrict_ip.event_subscriber.class%'
     arguments:
-      - @restrict_ip.service
-      - @config.factory
-      - @logger.factory
-      - @module_handler
-      - @url_generator
+      - '@restrict_ip.service'
+      - '@config.factory'
+      - '@logger.factory'
+      - '@module_handler'
+      - '@url_generator'
     tags:
       - {name: event_subscriber}
