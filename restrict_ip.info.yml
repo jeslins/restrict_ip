@@ -2,5 +2,4 @@ name: 'Restrict IP'
 description: 'Restricts access to the site to a list of user defined IP addresses'
 core: '8.x'
 type: 'module'
-
 configure: restrict_ip.admin_page
