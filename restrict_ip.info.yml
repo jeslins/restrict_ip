@@ -3,4 +3,4 @@ description: 'Restricts access to the site to a list of user defined IP addresse
 core: '8.x'
 type: 'module'
 
-configure: 'admin/config/people/restrict_ip'
+configure: restrict_ip.admin_page
