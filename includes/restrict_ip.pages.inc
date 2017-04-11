@@ -141,15 +141,28 @@ function restrict_ip_settings($form, &$form_state)
 			'#default_value' => variable_get('restrict_ip_country_list', array()),
 			'#options' => countries_get_countries('name', array('enabled' => COUNTRIES_ALL)),
 			'#multiple' => TRUE,
-			'#states' => [
-				'invisible' => [
-					':input[name="country_white_black_list"]' => ['value' => 0],
-				],
-			],
+			'#states' => array(
+				'invisible' => array(
+					':input[name="country_white_black_list"]' => array('value' => 0),
+				),
+			),
 		);
 	}
 	else
 	{
+		if(module_exists('ip2country'))
+		{
+			$description = t('Enable the !countries module to use this feature', array('!countries' => l('Countries', 'https://www.drupal.org/project/countries')));
+		}
+		elseif(module_exists('countries'))
+		{
+			$description = t('Enable the !ip2country module to use this feature', array('!ip2country' => l("IP-based Determination of a Visitor's Country", 'https://www.drupal.org/project/ip2country')));
+		}
+		else
+		{
+			$description = t('Enable the !countries and !ip2country modules to use this feature', array('!ip2country' => l("IP-based Determination of a Visitor's Country", 'https://www.drupal.org/project/ip2country'), '!countries' => l('Countries', 'https://www.drupal.org/project/countries')));
+		}
+
 		$form['restrict_ip_country_white_black_list'] = array
 		(
 			'#title' => t('Whitelist or blacklist IP addresses by country'),
@@ -162,7 +175,7 @@ function restrict_ip_settings($form, &$form_state)
 			),
 			'#default_value' => 0,
 			'#disabled' => TRUE,
-			'#description' => t('Enable the @countries @ip2country modules to use this feature', ['@ip2country' => 'https://www.drupal.org/project/ip2country', '@countries' => 'https://www.drupal.org/project/countries']),
+			'#description' => $description,
 		);
 
 		$form['restrict_ip_country_list'] = array
