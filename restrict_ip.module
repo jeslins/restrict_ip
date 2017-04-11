@@ -131,7 +131,7 @@ function restrict_ip_boot()
 				}
 			}
 
-			if(variable_get('restrict_ip_white_black_list', 0) == 2)
+			if($access_denied && variable_get('restrict_ip_white_black_list', 0) == 2)
 			{
 				$blacklisted_pages = trim(variable_get('restrict_ip_page_blacklist', ''));
 				if(strlen($blacklisted_pages))
@@ -229,6 +229,41 @@ function restrict_ip_boot()
 									}
 								}
 							}
+						}
+					}
+				}
+
+				// Determine if the countries module and the ip2country module are enabled. module_exists() is not
+				// available in hook_boot(), so a database query is required. Any schema version above -1 means
+				// the module is enabled.
+				$schema_version = db_query('SELECT name, schema_version FROM {system} WHERE name = :countries OR name = :ip2country', array(':countries' => 'countries', ':ip2country' => 'ip2country'));
+				foreach($schema_version as $version)
+				{
+					$name = $version->name;
+					$$name = $version->schema_version > -1;
+				}
+
+				if($access_denied && $countries && $ip2country)
+				{
+					if(variable_get('restrict_ip_country_white_black_list', 0) == 1)
+					{
+						$country_code = $user->data['country_iso_code_2'];
+						if($country_code)
+						{
+							$countries = variable_get('restrict_ip_country_list', array());
+
+							$access_denied = !in_array(strtoupper($country_code), $countries);
+						}
+					}
+
+					if(variable_get('restrict_ip_country_white_black_list', 0) == 2)
+					{
+						$country_code = $user->data['country_iso_code_2'];
+						if($country_code)
+						{
+							$countries = variable_get('restrict_ip_country_list', array());
+
+							$access_denied = in_array(strtoupper($country_code), $countries);
 						}
 					}
 				}

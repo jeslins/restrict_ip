@@ -1,18 +1,8 @@
 Question: I locked myself out of my site, what do I do?
 
-Answer: Open restrict_ip.module and look for this line, in the function ip_restricted():
+Add the following to settings.php and save:
 
-if($block)
-{
-	$blocked = TRUE;
-}
-
-Change it to this:
-
-if($block)
-{
-	//$blocked = TRUE;
-}
+$conf['restrict_ip_enable'] = FALSE;
 
 You will now be able to access the site (as will anyone else). Go to the configuration page,
 and fix your settings. Revert to the original code for the module to begin working again.
