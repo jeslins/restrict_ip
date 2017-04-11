@@ -24,3 +24,12 @@ bypass_action: 'provide_link_login_page'
 #   1 = check on all paths except the paths given in page_whitelist
 #   2 = check only on paths given in page_blacklist
 white_black_list: 0
+
+# An integer indicating how to check bypasses by country
+#   0 = No check by country
+#   1 = Whitelist selected countries
+#   2 = Blacklist selected countries
+country_white_black_list: 0
+
+# A string indicating which countries should be white/black listed
+country_list: ''

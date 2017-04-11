@@ -6,6 +6,7 @@ use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\Core\Form\ConfigFormBase;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Link;
+use Drupal\Core\Locale\CountryManagerInterface;
 use Drupal\Core\Session\AccountProxyInterface;
 use Drupal\Core\Url;
 use Drupal\restrict_ip\Service\RestrictIpServiceInterface;
@@ -26,6 +27,13 @@ class ConfigForm extends ConfigFormBase
 	 * @var \Drupal\Core\Extension\ModuleHandlerInterface
 	 */
 	protected $moduleHandler;
+
+	/**
+	 * The country manager service.
+	 *
+	 * @var \Drupal\Core\Locale\CountryManagerInterface
+	 */
+	protected $countryManager;
 
 	/**
 	 * The Restrict IP Service
@@ -56,19 +64,22 @@ class ConfigForm extends ConfigFormBase
 	protected $blacklistedPagePaths;
 
 	/**
-	 * Creates the Restrict IP ConfigForm object
+	 * Constructs a Restrict IP ConfigForm object
 	 *
 	 * @param \Drupal\Core\Session\AccountProxyInterface $currentUser
 	 *   The current user
 	 * @param \Drupal\Core\Extension\ModuleHandlerInterface $moduleHandler
 	 *   The Module Handler service
+	 * @param \Drupal\Core\Locale\CountryManagerInterface $countryManager
+	 *   The Country Manager service
 	 * @param \Drupal\restrict_ip\Service\RestrictIpServiceInterface $restrictIpService
 	 *   The Restrict IP service object
 	 */
-	public function __construct(AccountProxyInterface $currentUser, ModuleHandlerInterface $moduleHandler, RestrictIpServiceInterface $restrictIpService)
+	public function __construct(AccountProxyInterface $currentUser, ModuleHandlerInterface $moduleHandler, CountryManagerInterface $countryManager, RestrictIpServiceInterface $restrictIpService)
 	{
 		$this->currentUser = $currentUser;
 		$this->moduleHandler = $moduleHandler;
+		$this->countryManager = $countryManager;
 		$this->restrictIpService = $restrictIpService;
 
 		$this->whitelistedIpAddresses = $this->restrictIpService->getWhitelistedIpAddresses();
@@ -84,6 +95,7 @@ class ConfigForm extends ConfigFormBase
 		return new static (
 			$container->get('current_user'),
 			$container->get('module_handler'),
+			$container->get('country_manager'),
 			$container->get('restrict_ip.service')
 		);
 	}
@@ -233,6 +245,49 @@ class ConfigForm extends ConfigFormBase
 			],
 		];
 
+		if($this->moduleHandler->moduleExists('ip2country'))
+		{
+			$form['country_white_black_list'] = [
+				'#title' => $this->t('Whitelist or blacklist IP addresses by country'),
+				'#type' => 'radios',
+				'#options' => [
+					0 => $this->t('Disabled'),
+					1 => $this->t('Whitelist selected countries'),
+					2 => $this->t('Blacklist selected countries'),
+				],
+				'#default_value' => $config->get('country_white_black_list') ? $config->get('country_white_black_list') : 0,
+			];
+
+			$form['country_list'] = [
+				'#title' => $this->t('Countries'),
+				'#type' => 'checkboxes',
+				'#options' => $this->countryManager->getList(),
+				'#default_value' => explode(':', $config->get('country_list')),
+				'#states' => [
+					'invisible' => [
+						':input[name="country_white_black_list"]' => ['value' => 0],
+					],
+				],
+			];
+		}
+		else
+		{
+			$url = Url::fromUri('https://www.drupal.org/project/ip2country');
+			$link = Link::FromTextAndUrl($this->t("IP-based Determination of a Visitor's Country"), $url);
+			$form['country_white_black_list'] = [
+				'#title' => $this->t('Whitelist or blacklist IP addresses by country'),
+				'#type' => 'radios',
+				'#options' => [
+					0 => $this->t('Disabled'),
+					1 => $this->t('Whitelist selected countries'),
+					2 => $this->t('Blacklist selected countries'),
+				],
+				'#disabled' => TRUE,
+				'#default_value' => 0,
+				'#description' => $this->t('Enable the @ip2country module to use this feature', ['@ip2country' => $link->toString()]),
+			];
+		}
+
 		return parent::buildForm($form, $form_state);
 	}
 
@@ -377,6 +432,23 @@ class ConfigForm extends ConfigFormBase
 		
 	public function submitForm(array &$form, FormStateInterface $form_state)
 	{
+		if($this->moduleHandler->moduleExists('ip2country'))
+		{
+			$countries = [];
+			foreach($form_state->getValue('country_list') as $country)
+			{
+				if($country)
+				{
+					$countries[] = $country;
+				}
+			}
+			$country_list = implode(':', $countries);
+		}
+		else
+		{
+			$country_list = '';
+		}
+
 		$this->config('restrict_ip.settings')
 			->set('enable', (bool) $form_state->getValue('enable'))
 			->set('mail_address', (string) $form_state->getValue('mail_address'))
@@ -384,6 +456,8 @@ class ConfigForm extends ConfigFormBase
 			->set('allow_role_bypass', (bool) $form_state->getValue('allow_role_bypass'))
 			->set('bypass_action', (string) $form_state->getValue('bypass_action'))
 			->set('white_black_list', (int) $form_state->getValue('white_black_list'))
+			->set('country_white_black_list', (int) $form_state->getValue('country_white_black_list'))
+			->set('country_list', $country_list)
 			->save();
 
 		$this->restrictIpService->saveWhitelistedIpAddresses($this->restrictIpService->cleanIpAddressInput($form_state->getValue('address_list')));

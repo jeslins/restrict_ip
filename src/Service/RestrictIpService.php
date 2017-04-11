@@ -3,10 +3,12 @@
 namespace Drupal\restrict_ip\Service;
 
 use Drupal\Core\Config\ConfigFactoryInterface;
+use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\Core\Path\CurrentPathStack;
 use Drupal\Core\Path\PathMatcherInterface;
 use Drupal\Core\Session\AccountProxyInterface;
 use Drupal\restrict_ip\Mapper\RestrictIpMapperInterface;
+use Drupal\user\UserDataInterface;
 use Symfony\Component\HttpFoundation\RequestStack;
 
 class RestrictIpService implements RestrictIpServiceInterface
@@ -61,6 +63,20 @@ class RestrictIpService implements RestrictIpServiceInterface
 	protected $pathMatcher;
 
 	/**
+	 * The Module Handler service
+	 *
+	 * @var \Drupal\Core\Extension\ModuleHandlerInterface
+	 */
+	protected $moduleHandler;
+
+	/**
+	 * The User Data service
+	 *
+	 * @var \Drupal\user\UserDataInterface
+	 */
+	protected $userData;
+
+	/**
 	 * Constructs a RestrictIpService object
 	 *
 	 * @param \Drupal\Core\Session\AccountProxyInterface $currentUser
@@ -75,12 +91,18 @@ class RestrictIpService implements RestrictIpServiceInterface
 	 *   The Restrict IP data mapper object
 	 * @param \Drupal\Core\Path\PathMatcherInterface $pathMatcher
 	 *   The Path Matcher service
+	 * @param \Drupal\Core\Extension\ModuleHandlerInterface $moduleHandler
+	 *   The Module Handler service
+	 * @param \Drupal\user\UserDataInterface $userData
+	 *   The User Data service
 	 */
-	public function __construct(AccountProxyInterface $currentUser, CurrentPathStack $currentPathStack, ConfigFactoryInterface $configFactory, RequestStack $requestStack, RestrictIpMapperInterface $restrictIpMapper, PathMatcherInterface $pathMatcher)
+	public function __construct(AccountProxyInterface $currentUser, CurrentPathStack $currentPathStack, ConfigFactoryInterface $configFactory, RequestStack $requestStack, RestrictIpMapperInterface $restrictIpMapper, PathMatcherInterface $pathMatcher, ModuleHandlerInterface $moduleHandler, UserDataInterface $userData = NULL)
 	{
 		$this->currentUser = $currentUser;
 		$this->mapper = $restrictIpMapper;
 		$this->pathMatcher = $pathMatcher;
+		$this->moduleHandler = $moduleHandler;
+		$this->userData = $userData;
 
 		$this->currentPath = strtolower($currentPathStack->getPath());
 		$this->config = $configFactory->get('restrict_ip.settings');
@@ -125,6 +147,14 @@ class RestrictIpService implements RestrictIpServiceInterface
 					$access_denied = FALSE;
 				}
 				elseif($this->allowAccessWhitelistedIp())
+				{
+					$access_denied = FALSE;
+				}
+				elseif($this->moduleHandler->moduleExists('ip2country') && $this->allowAccessWhitelistCountry())
+				{
+					$access_denied = FALSE;
+				}
+				elseif($this->moduleHandler->moduleExists('ip2country') && $this->allowAccessBlacklistCountry())
 				{
 					$access_denied = FALSE;
 				}
@@ -345,6 +375,46 @@ class RestrictIpService implements RestrictIpServiceInterface
 				{
 					return TRUE;
 				}
+			}
+		}
+
+		return FALSE;
+	}
+
+	/**
+	 * Test to see if the current user is whitelisted based on their country
+	 */
+	private function allowAccessWhitelistCountry()
+	{
+		$allow_access = FALSE;
+		if($this->config->get('country_white_black_list') == 1)
+		{
+			$country_code = $this->userData->get('ip2country', $this->currentUser->id(), 'country_iso_code_2');
+			if($country_code)
+			{
+				$countries = explode(':', $this->config->get('country_list'));
+
+				return in_array(strtoupper($country_code), $countries);
+			}
+		}
+
+		return FALSE;
+	}
+
+	/**
+	 * Test to see if the current user is blacklist based on their country
+	 */
+	private function allowAccessBlacklistCountry()
+	{
+		$allow_access = FALSE;
+		if($this->config->get('country_white_black_list') == 2)
+		{
+			$country_code = $this->userData->get('ip2country', $this->currentUser->id(), 'country_iso_code_2');
+			if($country_code)
+			{
+				$countries = explode(':', $this->config->get('country_list'));
+
+				return !in_array(strtoupper($country_code), $countries);
 			}
 		}
 

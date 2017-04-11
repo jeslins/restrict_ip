@@ -18,6 +18,7 @@ services:
       - '@request_stack'
       - '@restrict_ip.mapper'
       - '@path.matcher'
+      - '@module_handler'
 
   restrict_ip.event_subscriber:
     class: '%restrict_ip.event_subscriber.class%'
