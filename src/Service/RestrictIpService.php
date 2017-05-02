@@ -150,13 +150,16 @@ class RestrictIpService implements RestrictIpServiceInterface
 				{
 					$access_denied = FALSE;
 				}
-				elseif($this->moduleHandler->moduleExists('ip2country') && $this->allowAccessWhitelistCountry())
+				elseif($this->moduleHandler->moduleExists('ip2country'))
 				{
-					$access_denied = FALSE;
-				}
-				elseif($this->moduleHandler->moduleExists('ip2country') && $this->allowAccessBlacklistCountry())
-				{
-					$access_denied = FALSE;
+					if($this->allowAccessWhitelistCountry())
+					{
+						$access_denied = FALSE;
+					}
+					elseif($this->allowAccessBlacklistCountry())
+					{
+						$access_denied = FALSE;
+					}
 				}
 
 				// If the user has been denied access
@@ -268,6 +271,17 @@ class RestrictIpService implements RestrictIpServiceInterface
 	{
 		$this->mapper->saveBlacklistedPaths($blacklistedPaths, $overwriteExisting);
 	}
+
+    /**
+     * Get the current user's country
+     *
+     * @return string
+     *   The two-letter country code for the given IP address
+     */
+    protected function ip2CountryGetCurrentUserCountry()
+    {
+		return ip2country_get_country($this->currentUserIp);
+    }
 
 	/**
 	 * Test to see if access should be granted based on 
@@ -389,7 +403,8 @@ class RestrictIpService implements RestrictIpServiceInterface
 		$allow_access = FALSE;
 		if($this->config->get('country_white_black_list') == 1)
 		{
-			$country_code = $this->userData->get('ip2country', $this->currentUser->id(), 'country_iso_code_2');
+			$country_code = $this->ip2CountryGetCurrentUserCountry();
+
 			if($country_code)
 			{
 				$countries = explode(':', $this->config->get('country_list'));
@@ -409,7 +424,7 @@ class RestrictIpService implements RestrictIpServiceInterface
 		$allow_access = FALSE;
 		if($this->config->get('country_white_black_list') == 2)
 		{
-			$country_code = $this->userData->get('ip2country', $this->currentUser->id(), 'country_iso_code_2');
+			$country_code = $this->ip2CountryGetCurrentUserCountry();
 			if($country_code)
 			{
 				$countries = explode(':', $this->config->get('country_list'));
