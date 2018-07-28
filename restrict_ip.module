@@ -222,7 +222,7 @@ function restrict_ip_boot() {
           $$name = $version->schema_version > -1;
         }
 
-        if ($access_denied && $countries && $ip2country) {
+        if ($access_denied) {
           if (variable_get('restrict_ip_country_white_black_list', 0) == 1) {
             $country_code = $user->data['country_iso_code_2'];
             if ($country_code) {
@@ -231,8 +231,7 @@ function restrict_ip_boot() {
               $access_denied = !in_array(strtoupper($country_code), $countries);
             }
           }
-
-          if (variable_get('restrict_ip_country_white_black_list', 0) == 2) {
+          elseif (variable_get('restrict_ip_country_white_black_list', 0) == 2) {
             $country_code = $user->data['country_iso_code_2'];
             if ($country_code) {
               $countries = variable_get('restrict_ip_country_list', array());
