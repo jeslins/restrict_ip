@@ -1,496 +1,445 @@
 <?php
 
 /**
- * Implementation of hook_menu()
+ * @file
+ * Holds hooks for the restrict_ip module.
  */
-function restrict_ip_menu()
-{
-	$menu['admin/config/people/restrict_ip'] = array
-	(
-		'title' => 'IP Address Whitelist',
-		'description' => 'Set the list of IP addresses that will be allowed to access the site',
-		'page callback' => 'drupal_get_form',
-		'page arguments' => array('restrict_ip_settings'),
-		'access arguments' => array('Administer Restricted IP addresses'),
-		'file' => 'includes/restrict_ip.pages.inc',
-	);
-	$menu['restrict_ip/access_denied'] = array
-	(
-		'title' => 'Access Denied',
-		'page callback' => 'restrict_ip_access_denied_page',
-		'access callback' => TRUE,
-		'file' => 'includes/restrict_ip.pages.inc',
-		'type' => MENU_CALLBACK,
-	);
-	return $menu;
+
+/**
+ * Implements hook_menu().
+ */
+function restrict_ip_menu() {
+  $menu['admin/config/people/restrict_ip'] = array(
+    'title' => 'IP Address Whitelist',
+    'description' => 'Set the list of IP addresses that will be allowed to access the site',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('restrict_ip_settings'),
+    'access arguments' => array('Administer Restricted IP addresses'),
+    'file' => 'includes/restrict_ip.pages.inc',
+  );
+
+  $menu['restrict_ip/access_denied'] = array(
+    'title' => 'Access Denied',
+    'page callback' => 'restrict_ip_access_denied_page',
+    'access callback' => TRUE,
+    'file' => 'includes/restrict_ip.pages.inc',
+    'type' => MENU_CALLBACK,
+  );
+
+  return $menu;
 }
 
 /**
- * Implementation of hook_permission()
+ * Implements hook_permission().
  */
-function restrict_ip_permission()
-{
-	$permissions = array
-	(
-		'Administer Restricted IP addresses' => array
-		(
-			'title' => 'Administer Restricted IP addresses',
-			'description' => 'Allows the user to set admitted IP addresses',
-		),
-	);
+function restrict_ip_permission() {
+  $permissions = array(
+    'Administer Restricted IP addresses' => array(
+      'title' => 'Administer Restricted IP addresses',
+      'description' => 'Allows the user to set admitted IP addresses',
+    ),
+  );
 
-	if(variable_get('restrict_ip_allow_role_bypass'))
-	{
-		$permissions['Bypass IP Restriction'] = array
-		(
-			'title' => 'Bypass IP Restriction',
-			'description' => 'Allows the user to access the site even if not in the IP whitelist',
-		);
-	}
+  if (variable_get('restrict_ip_allow_role_bypass')) {
+    $permissions['Bypass IP Restriction'] = array(
+      'title' => 'Bypass IP Restriction',
+      'description' => 'Allows the user to access the site even if not in the IP whitelist',
+    );
+  }
 
-	return $permissions;
+  return $permissions;
 }
 
 /**
- * Function used to set or determine if the user's ip address is not whitelisted
+ * Determines whether the user's ip address is restricted (not whitelisted).
  */
-function ip_restricted($block = FALSE)
-{
-	$blocked = &drupal_static(__function__);
-	if(is_null($blocked))
-	{
-		$blocked = FALSE;
-	}
+function ip_restricted($block = FALSE) {
 
-	// We do this check as block will only be set
-	// when the user is in hook_boot(). If we were
-	// to run the code in the else{} block during
-	// hook_boot(), we'd get an error as user_access()
-	// is not yet available.
-	if($block)
-	{
-		$blocked = TRUE;
-	}
-	else
-	{
-		if($blocked)
-		{
-			if(variable_get('restrict_ip_allow_role_bypass', FALSE))
-			{
-				$path = current_path();
-				$path = strtolower($path);
-				if(user_access('Bypass IP Restriction') || in_array($path, array('user', 'user/login', 'user/password', 'user/logout')) || strpos($path, 'user/reset/') === 0)
-				{
-					return FALSE;
-				}
-			}
-		}
+  $blocked = &drupal_static(__function__);
+  if (is_null($blocked)) {
+    $blocked = FALSE;
+  }
 
-		return $blocked;
-	}
+  // We do this check as block will only be set when the user is in hook_boot().
+  // If we were to run the code in the else{} block during hook_boot(), we'd get
+  // an error as user_access() is not yet available.
+  if ($block) {
+    $blocked = TRUE;
+  }
+  else {
+    if ($blocked) {
+      if (variable_get('restrict_ip_allow_role_bypass', FALSE)) {
+        $path = current_path();
+        $path = strtolower($path);
+        if (
+          user_access('Bypass IP Restriction') ||
+          in_array(
+            $path, array('user', 'user/login', 'user/password', 'user/logout')
+          ) ||
+          strpos($path, 'user/reset/') === 0
+        ) {
+          return FALSE;
+        }
+      }
+    }
+
+    return $blocked;
+  }
 }
 
 /**
- * Implementation of hook_boot()
+ * Implements hook_boot().
  *
- * This function determines whether or not the user should be
- * whitelisted, and if they should, it sets a flag indicating so
+ * Determines whether or not the user should be whitelisted, and if they should,
+ * sets a flag indicating so.
  */
-function restrict_ip_boot()
-{
-	global $user;
+function restrict_ip_boot() {
+  global $user;
 
-	drupal_bootstrap(DRUPAL_BOOTSTRAP_SESSION);
-	drupal_session_start();
+  drupal_bootstrap(DRUPAL_BOOTSTRAP_SESSION);
+  drupal_session_start();
 
-	unset($_SESSION['restrict_ip']);
+  unset($_SESSION['restrict_ip']);
 
-	if(variable_get('restrict_ip_enable', 0))
-	{
-		// Allow Drush requests regardless of IP.
-		if(!drupal_is_cli())
-		{
-			$access_denied = TRUE;
+  if (variable_get('restrict_ip_enable', 0)) {
+    // Allow Drush requests regardless of IP.
+    if (!drupal_is_cli()) {
+      $access_denied = TRUE;
 
-			if(variable_get('restrict_ip_white_black_list', 0) == 1)
-			{
-				$whitelisted_pages = trim(variable_get('restrict_ip_page_whitelist', ''));
-				if(strlen($whitelisted_pages))
-				{
-					$whitelisted_pages = explode(PHP_EOL, $whitelisted_pages);
-					for($i = 0; $i < count($whitelisted_pages); $i++)
-					{
-						$whitelisted_pages[$i] = strtolower(trim($whitelisted_pages[$i]));
-					}
+      if (variable_get('restrict_ip_white_black_list', 0)) {
+        $whitelisted_pages = trim(variable_get('restrict_ip_page_whitelist', ''));
+        if (strlen($whitelisted_pages)) {
+          $whitelisted_pages = explode(PHP_EOL, $whitelisted_pages);
+          for ($i = 0; $i < count($whitelisted_pages); $i++) {
+            $whitelisted_pages[$i] = strtolower(trim($whitelisted_pages[$i]));
+          }
 
-					$current_path = strtolower($_GET['q']);
-					if(in_array($current_path, $whitelisted_pages))
-					{
-						$access_denied = FALSE;
-					}
-				}
-			}
+          $current_path = strtolower($_GET['q']);
+          if (in_array($current_path, $whitelisted_pages)) {
+            $access_denied = FALSE;
+          }
+        }
+      }
 
-			if($access_denied && variable_get('restrict_ip_white_black_list', 0) == 2)
-			{
-				$blacklisted_pages = trim(variable_get('restrict_ip_page_blacklist', ''));
-				if(strlen($blacklisted_pages))
-				{
-					$blacklisted_pages = explode(PHP_EOL, $blacklisted_pages);
-					for($i = 0; $i < count($blacklisted_pages); $i++)
-					{
-						$blacklisted_pages[$i] = strtolower(trim($blacklisted_pages[$i]));
-					}
+      if ($access_denied && variable_get('restrict_ip_white_black_list', 0) == 2) {
+        $blacklisted_pages = trim(variable_get('restrict_ip_page_blacklist', ''));
+        if (strlen($blacklisted_pages)) {
+          $blacklisted_pages = explode(PHP_EOL, $blacklisted_pages);
+          for ($i = 0; $i < count($blacklisted_pages); $i++) {
+            $blacklisted_pages[$i] = strtolower(trim($blacklisted_pages[$i]));
+          }
 
-					$current_path = strtolower($_GET['q']);
-					if(!in_array($current_path, $blacklisted_pages))
-					{
-						$access_denied = FALSE;
-					}
-				}
-			}
+          $current_path = strtolower($_GET['q']);
+          if (!in_array($current_path, $blacklisted_pages)) {
+            $access_denied = FALSE;
+          }
+        }
+      }
 
-			if($access_denied)
-			{
-				// Get the value saved to the system, and turn it into an array of IP addresses.
-				$ip_addresses = restrict_ip_sanitize_ip_list(variable_get('restrict_ip_address_list', ''));
-				// Add any whitelisted IPs from the settings.php file to the whitelisted array
-				if(count(variable_get('restrict_ip_whitelist', array())))
-				{
-					$ip_addresses = array_merge($ip_addresses, restrict_ip_sanitize_ip_list(implode(PHP_EOL, variable_get('restrict_ip_whitelist', array()))));
-				}
+      if ($access_denied) {
+        // Get the value saved to the system, and turn it into an array of IP
+        // addresses.
+        $ip_addresses = restrict_ip_sanitize_ip_list(variable_get('restrict_ip_address_list', ''));
+        // Add any whitelisted IPs from the settings.php file to the whitelisted
+        // array.
+        if (count(variable_get('restrict_ip_whitelist', array()))) {
+          $ip_addresses = array_merge($ip_addresses, restrict_ip_sanitize_ip_list(implode(PHP_EOL, variable_get('restrict_ip_whitelist', array()))));
+        }
 
-				if(count($ip_addresses))
-				{
-					$user_ip = ip_address();
-					foreach($ip_addresses as $ip_address)
-					{
-						$ip_address = trim($ip_address);
-						if(strlen($ip_address))
-						{
-							// Check if the given IP address matches the current user
-							if($ip_address == $user_ip)
-							{
-								// The given IP is allowed - so we don't deny access (aka we allow it)
-								$access_denied = FALSE;
-								// No need to continue as user is allowed
-								break;
-							}
+        if (count($ip_addresses)) {
+          $user_ip = ip_address();
+          foreach ($ip_addresses as $ip_address) {
+            $ip_address = trim($ip_address);
+            if (strlen($ip_address)) {
+              // Check if the given IP address matches the current user.
+              if ($ip_address == $user_ip) {
+                // The given IP is allowed - so don't deny access (aka allow it)
+                $access_denied = FALSE;
+                // No need to continue as user is allowed.
+                break;
+              }
 
-							$pieces = explode('-', $ip_address);
-							// We only need to continue checking this IP address
-							// if it is a range of addresses
-							if(count($pieces) == 2)
-							{
-								$start_ip = $pieces[0];
-								$end_ip = $pieces[1];
-								$start_pieces = explode('.', $start_ip);
-								// If there are not 4 sections to the IP then its an invalid
-								// IPv4 address, and we don't need to continue checking
-								if(count($start_pieces) === 4)
-								{
-									$user_pieces = explode('.', $user_ip);
-									$continue = TRUE;
-									// We compare the first three chunks of the first IP address
-									// With the first three chunks of the user's IP address
-									// If they are not the same, then the IP address is not within
-									// the range of IPs
-									for($i = 0; $i < 3; $i++)
-									{
-										if((int) $user_pieces[$i] !== (int) $start_pieces[$i])
-										{
-											// One of the chunks has failed, so we can stop
-											// checking this range
-											$continue = FALSE;
-											break;
-										}
-									}
-									// The first three chunks have past testing, so now we check the
-									// range given to see if the final chunk is in this range
-									if($continue)
-									{
-										// First we get the start of the range
-										$start_final_chunk = (int) array_pop($start_pieces);
-										$end_pieces = explode('.', $end_ip);
-										// Then we get the end of the range. This will work
-										// whether the user has entered XXX.XXX.XXX.XXX - XXX.XXX.XXX.XXX
-										// or XXX.XXX.XXX.XXX-XXX
-										$end_final_chunk = (int) array_pop($end_pieces);
-										// Now we get the user's final chunk
-										$user_final_chunk = (int) array_pop($user_pieces);
-										// And finally we check to see if the user's chunk lies in that range
-										if($user_final_chunk >= $start_final_chunk && $user_final_chunk <= $end_final_chunk)
-										{
-											// The user's IP lies in the range, so we don't deny access (ie - we grant it)
-											$access_denied = FALSE;
-											// No need to cintinue checking addresses as the user has been granted
-											break;
-										}
-									}
-								}
-							}
-						}
-					}
-				}
+              $pieces = explode('-', $ip_address);
+              // We only need to continue checking this IP address if it is a
+              // range of addresses.
+              if (count($pieces) == 2) {
+                $start_ip = $pieces[0];
+                $end_ip = $pieces[1];
+                $start_pieces = explode('.', $start_ip);
+                // If there are not 4 sections to the IP then its an invalid
+                // IPv4 address, and we don't need to continue checking.
+                if (count($start_pieces) === 4) {
+                  $user_pieces = explode('.', $user_ip);
+                  $continue = TRUE;
+                  // We compare the first three chunks of the first IP address
+                  // With the first three chunks of the user's IP address
+                  // If they are not the same, then the IP address is not within
+                  // the range of IPs.
+                  for ($i = 0; $i < 3; $i++) {
+                    if ((int) $user_pieces[$i] !== (int) $start_pieces[$i]) {
+                      // One of the chunks has failed, so we can stop
+                      // checking this range.
+                      $continue = FALSE;
+                      break;
+                    }
+                  }
+                  // The first three chunks have past testing, so now check the
+                  // range given to see if the final chunk is in this range.
+                  if ($continue) {
+                    // First we get the start of the range.
+                    $start_final_chunk = (int) array_pop($start_pieces);
+                    $end_pieces = explode('.', $end_ip);
+                    // Then we get the end of the range. This will work
+                    // whether the user has entered
+                    // XXX.XXX.XXX.XXX - XXX.XXX.XXX.XXX or XXX.XXX.XXX.XXX-XXX.
+                    $end_final_chunk = (int) array_pop($end_pieces);
+                    // Now we get the user's final chunk.
+                    $user_final_chunk = (int) array_pop($user_pieces);
+                    // Finally check to see if the user's chunk lies in that
+                    // range.
+                    if ($user_final_chunk >= $start_final_chunk && $user_final_chunk <= $end_final_chunk) {
+                      // The user's IP lies in the range, so access is not
+                      // denied (ie - granted).
+                      $access_denied = FALSE;
+                      // No need to cintinue checking addresses as access has
+                      // been granted.
+                      break;
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
 
-				// Determine if the countries module and the ip2country module are enabled. module_exists() is not
-				// available in hook_boot(), so a database query is required. Any schema version above -1 means
-				// the module is enabled.
-				$schema_version = db_query('SELECT name, schema_version FROM {system} WHERE name = :countries OR name = :ip2country', array(':countries' => 'countries', ':ip2country' => 'ip2country'));
-				foreach($schema_version as $version)
-				{
-					$name = $version->name;
-					$$name = $version->schema_version > -1;
-				}
+        // Determine if the countries module and the ip2country module are
+        // enabled. module_exists() is not available in hook_boot(), so a
+        // database query is required. Any schema version above -1 means the
+        // module is enabled.
+        $schema_version = db_query('SELECT name, schema_version FROM {system} WHERE name = :countries OR name = :ip2country', array(':countries' => 'countries', ':ip2country' => 'ip2country'));
+        foreach ($schema_version as $version) {
+          $name = $version->name;
+          $$name = $version->schema_version > -1;
+        }
 
-				if($access_denied && $countries && $ip2country)
-				{
-					if(variable_get('restrict_ip_country_white_black_list', 0) == 1)
-					{
-						$country_code = $user->data['country_iso_code_2'];
-						if($country_code)
-						{
-							$countries = variable_get('restrict_ip_country_list', array());
+        if ($access_denied && $countries && $ip2country) {
+          if (variable_get('restrict_ip_country_white_black_list', 0) == 1) {
+            $country_code = $user->data['country_iso_code_2'];
+            if ($country_code) {
+              $countries = variable_get('restrict_ip_country_list', array());
 
-							$access_denied = !in_array(strtoupper($country_code), $countries);
-						}
-					}
+              $access_denied = !in_array(strtoupper($country_code), $countries);
+            }
+          }
 
-					if(variable_get('restrict_ip_country_white_black_list', 0) == 2)
-					{
-						$country_code = $user->data['country_iso_code_2'];
-						if($country_code)
-						{
-							$countries = variable_get('restrict_ip_country_list', array());
+          if (variable_get('restrict_ip_country_white_black_list', 0) == 2) {
+            $country_code = $user->data['country_iso_code_2'];
+            if ($country_code) {
+              $countries = variable_get('restrict_ip_country_list', array());
 
-							$access_denied = in_array(strtoupper($country_code), $countries);
-						}
-					}
-				}
+              $access_denied = in_array(strtoupper($country_code), $countries);
+            }
+          }
+        }
 
-				// The user has been denied access, so we need to set this value as so.
-				if($access_denied)
-				{
-					$_SESSION['restrict_ip'] = TRUE;
-					ip_restricted(TRUE);
-				}
-			}
-		}
-	}
+        // The user has been denied access, so we need to set this value as so.
+        if ($access_denied) {
+          $_SESSION['restrict_ip'] = TRUE;
+          ip_restricted(TRUE);
+        }
+      }
+    }
+  }
 }
 
 /**
- * Helper function that takes a string containing IP addresses on separate lines,
- * Strips them of any code comments, trims them, and turns them into a nice array
- * of sanitized elements. Note that the elements may or may not be IP addresses
- * and if validation is necessary, the array returned from this function should
- * be validated.
- */
-function restrict_ip_sanitize_ip_list($raw_ip_addresses)
-{
-	$ip_addresses = trim($raw_ip_addresses);
-	$ip_addresses = preg_replace('/(\/\/|#).+/', '', $ip_addresses);
-	$ip_addresses = preg_replace('~/\*([^*]|[\r\n]|(\*+([^*/]|[\r\n])))*\*+/~', '', $ip_addresses);
-
-	$addresses = explode(PHP_EOL, $ip_addresses);
-
-	$return = array();
-	foreach($addresses as $ip_address)
-	{
-		$trimmed = trim($ip_address);
-		if(strlen($trimmed))
-		{
-			$return[] = $trimmed;
-		}
-	}
-
-	return $return;
-}
-
-/**
- * Implementation of hook_block_view_MODULE_DELTA_alter()
+ * Sanitizes a list of IP addresses.
  *
- * This function adds a key that is used to identify the main
- * content block, so that it is not unset in hook_block_view_alter()
+ * Helper function that takes a string containing IP addresses on separate
+ * lines, Strips them of any code comments, trims them, and turns them into a
+ * nice array of sanitized elements. Note that the elements may or may not be IP
+ * addresses and if validation is necessary, the array returned from this
+ * function should be validated.
+ *
+ * @param string $raw_ip_addresses
+ *   A newline separated list of IP addresses. This array may contain comments
+ *   as well as IP addresses.
+ *
+ * @return array
+ *   An array of IP addresses (strings), one per element.
  */
-function restrict_ip_block_view_system_main_alter(&$vars)
-{
-	$vars['block_id'] = 'system-main';
+function restrict_ip_sanitize_ip_list($raw_ip_addresses) {
+  $ip_addresses = trim($raw_ip_addresses);
+  $ip_addresses = preg_replace('/(\/\/|#).+/', '', $ip_addresses);
+  $ip_addresses = preg_replace('~/\*([^*]|[\r\n]|(\*+([^*/]|[\r\n])))*\*+/~', '', $ip_addresses);
+
+  $addresses = explode(PHP_EOL, $ip_addresses);
+
+  $return = array();
+  foreach ($addresses as $ip_address) {
+    $trimmed = trim($ip_address);
+    if (strlen($trimmed)) {
+      $return[] = $trimmed;
+    }
+  }
+
+  return $return;
 }
 
 /**
- * Implementation of hook_block_view_alter()
+ * Implements hook_block_view_MODULE_DELTA_alter().
  *
- * This function unsets all blocks except the main
- * content block for users who are not whitelisted
+ * Adds a key that is used to identify the main content block, so that it is not
+ * unset in hook_block_view_alter().
  */
-function restrict_ip_block_view_alter(&$vars)
-{
-	if(!ip_restricted())
-	{
-		if(!isset($vars['block_id']) || $vars['block_id'] != 'system-main')
-		{
-			$vars['#access'] = FALSE;
-		}
-	}
+function restrict_ip_block_view_system_main_alter(&$vars) {
+  $vars['block_id'] = 'system-main';
 }
 
 /**
- * Implementation of hook_page_alter()
+ * Implements hook_block_view_alter().
  *
- * This function redirects non-whitelisted users
- * to the access denied page, and unsets all
- * regions of the page, except for the content
- * regions, which shows the blacklisted error
- * to users.
+ * Usets all blocks except the main content block for users who are not
+ * whitelisted.
  */
-function restrict_ip_page_alter(&$page)
-{
-	global $theme;
-
-	if(ip_restricted())
-	{
-		if(strtolower(current_path()) != 'restrict_ip/access_denied')
-		{
-			if(module_exists('dblog') && variable_get('restrict_ip_watchdog', FALSE))
-			{
-				$current_path = drupal_get_path_alias(filter_xss(check_plain(strtolower(current_path()))));
-				watchdog('Restrict IP', 'Access to the path %path was blocked for the IP address %ip_address', array('%path' => $current_path, '%ip_address' => ip_address()));
-			}
-
-			if(variable_get('restrict_ip_allow_role_bypass', FALSE) && variable_get('restrict_ip_bypass_action', 'provide_link_login_page') === 'redirect_login_page')
-			{
-				drupal_goto('user/login');
-			}
-
-			if(in_array(variable_get('restrict_ip_white_black_list', 0), array(0, 1)))
-			{
-				drupal_goto('restrict_ip/access_denied');
-			}
-			else
-			{
-				drupal_set_message(t('The page you are trying to access cannot be accessed from your IP address.'));
-				drupal_goto('<front>');
-			}
-		}
-
-		$regions = system_region_list($theme, REGIONS_ALL);
-		unset($regions['content']);
-
-		$whitelisted_regions = array();
-		foreach(module_implements('restrict_ip_whitelisted_regions') as $module_name)
-		{
-			$function = $module_name . '_restrict_ip_whitelisted_regions';
-			$whitelisted_regions = array_merge($whitelisted_regions, $function());
-		}
-		foreach($whitelisted_regions as $wr)
-		{
-			unset($regions[$wr]);
-		}
-
-		foreach(array_keys($regions) as $region)
-		{
-			if(isset($page[$region]))
-			{
-				$page[$region] = FALSE;
-			}
-		}
-	}
+function restrict_ip_block_view_alter(&$vars) {
+  if (!ip_restricted()) {
+    if (!isset($vars['block_id']) || $vars['block_id'] != 'system-main') {
+      $vars['#access'] = FALSE;
+    }
+  }
 }
 
 /**
- * Override of template_preprocess_page()
+ * Implements hook_page_alter().
  *
- * This function unsets tabs and various
- * other page elements for blocked users
- * so they are not rendered
+ * Redirects non-whitelisted users to the access denied page, and unsets all
+ * regions of the page, except for the content regions, which shows the
+ * blacklisted error to users.
  */
-function restrict_ip_preprocess_page(&$page)
-{
-	if(ip_restricted())
-	{
-		if(isset($page['tabs']))
-		{
-			if(isset($page['tabs']['#primary']))
-			{
-				$page['tabs']['#primary'] = array();
-			}
-			if(isset($page['tabs']['#secondary']))
-			{
-				$page['tabs']['#primary'] = array();
-			}
-		}
-		$page['title_prefix'] = array();
-		$page['title_suffix'] = array();
-		$page['main_menu'] = array();
-		$page['secondary_menu'] = array();
-		$page['action_links'] = array();
-	}
+function restrict_ip_page_alter(&$page) {
+  global $theme;
+
+  if (ip_restricted()) {
+    if (strtolower(current_path()) != 'restrict_ip/access_denied') {
+      if (module_exists('dblog') && variable_get('restrict_ip_watchdog', FALSE)) {
+        $current_path = drupal_get_path_alias(filter_xss(check_plain(strtolower(current_path()))));
+        watchdog('Restrict IP', 'Access to the path %path was blocked for the IP address %ip_address', array('%path' => $current_path, '%ip_address' => ip_address()));
+      }
+
+      if (variable_get('restrict_ip_allow_role_bypass', FALSE) && variable_get('restrict_ip_bypass_action', 'provide_link_login_page') === 'redirect_login_page') {
+        drupal_goto('user/login');
+      }
+
+      if (in_array(variable_get('restrict_ip_white_black_list', 0), array(0, 1))) {
+        drupal_goto('restrict_ip/access_denied');
+      }
+      else {
+        drupal_set_message(t('The page you are trying to access cannot be accessed from your IP address.'));
+        drupal_goto('<front>');
+      }
+    }
+
+    $regions = system_region_list($theme, REGIONS_ALL);
+    unset($regions['content']);
+
+    $whitelisted_regions = array();
+    foreach (module_implements('restrict_ip_whitelisted_regions') as $module_name) {
+      $function = $module_name . '_restrict_ip_whitelisted_regions';
+      $whitelisted_regions = array_merge($whitelisted_regions, $function());
+    }
+
+    foreach ($whitelisted_regions as $wr) {
+      unset($regions[$wr]);
+    }
+
+    foreach (array_keys($regions) as $region) {
+      if (isset($page[$region])) {
+        $page[$region] = FALSE;
+      }
+    }
+  }
 }
 
 /**
- * Override of template_preprocess_html()
+ * Override of template_preprocess_page().
  *
- * This function unsets $page_top and $page_bottom
- * so that they are not passed to html.tpl.php,
- * preventing these regions from being rendered
+ * Unsets tabs and various other page elements for blocked users so they are not
+ * rendered.
  */
-function restrict_ip_preprocess_html(&$items)
-{
-	if(ip_restricted())
-	{
-		if(isset($items['page']['page_top']))
-		{
-			$items['page']['page_top'] = FALSE;
-		}
-		if(isset($items['page']['page_top']))
-		{
-			$items['page']['page_bottom'] = FALSE;
-		}
-	}
+function restrict_ip_preprocess_page(&$page) {
+  if (ip_restricted()) {
+    if (isset($page['tabs'])) {
+      if (isset($page['tabs']['#primary'])) {
+        $page['tabs']['#primary'] = array();
+      }
+
+      if (isset($page['tabs']['#secondary'])) {
+        $page['tabs']['#primary'] = array();
+      }
+    }
+
+    $page['title_prefix'] = array();
+    $page['title_suffix'] = array();
+    $page['main_menu'] = array();
+    $page['secondary_menu'] = array();
+    $page['action_links'] = array();
+  }
 }
 
 /**
- * Implementation of hook_js_alter()
+ * Override of template_preprocess_html().
  *
- * This function removes all javascript from the page
- * with the exception of jquery.js and the javascript
- * file provided with the module
+ * This function unsets $page_top and $page_bottom so that they are not passed
+ * to html.tpl.php, preventing these regions from being rendered.
  */
-function restrict_ip_js_alter(&$javascript)
-{
-	if(ip_restricted())
-	{
-		$whitelisted_keys = array
-		(
-			'misc/jquery.js',
-			drupal_get_path('module', 'restrict_ip') . '/js/restrict_ip.js',
-		);
-		foreach(module_implements('restrict_ip_whitelisted_js_keys') as $module_name)
-		{
-			$function = $module_name . '_restrict_ip_whitelisted_js_keys';
-			$whitelisted_keys = array_merge($whitelisted_keys, $function());
-		}
+function restrict_ip_preprocess_html(&$items) {
+  if (ip_restricted()) {
+    if (isset($items['page']['page_top'])) {
+      $items['page']['page_top'] = FALSE;
+    }
 
-		foreach(array_keys($javascript) as $key)
-		{
-			if(!in_array($key, $whitelisted_keys))
-			{
-				unset($javascript[$key]);
-			}
-		}
-	}
+    if (isset($items['page']['page_top'])) {
+      $items['page']['page_bottom'] = FALSE;
+    }
+  }
 }
 
 /**
- * Override of template_preprocess_breadcrumb()
+ * Implements hook_js_alter().
  *
- * Unsets the breadcrumb if the user has not been whitelisted
+ * This function removes all javascript from the page with the exception of
+ * jquery.js and the javascript file provided with the module.
  */
-function restrict_ip_preprocess_breadcrumb(&$vars)
-{
-	if(ip_restricted())
-	{
-		$vars['breadcrumb'] = array();
-	}
+function restrict_ip_js_alter(&$javascript) {
+
+  if (ip_restricted()) {
+
+    $whitelisted_keys = array(
+      'misc/jquery.js',
+      drupal_get_path('module', 'restrict_ip') . '/js/restrict_ip.js',
+    );
+
+    foreach (module_implements('restrict_ip_whitelisted_js_keys') as $module_name) {
+      $function = $module_name . '_restrict_ip_whitelisted_js_keys';
+      $whitelisted_keys = array_merge($whitelisted_keys, $function());
+    }
+
+    foreach (array_keys($javascript) as $key) {
+      if (!in_array($key, $whitelisted_keys)) {
+        unset($javascript[$key]);
+      }
+    }
+  }
+}
+
+/**
+ * Override of template_preprocess_breadcrumb().
+ *
+ * Unsets the breadcrumb if the user has not been whitelisted.
+ */
+function restrict_ip_preprocess_breadcrumb(&$vars) {
+  if (ip_restricted()) {
+    $vars['breadcrumb'] = array();
+  }
 }
