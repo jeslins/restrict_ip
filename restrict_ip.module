@@ -96,12 +96,15 @@ function ip_restricted($block = FALSE) {
 function restrict_ip_boot() {
   global $user;
 
-  drupal_bootstrap(DRUPAL_BOOTSTRAP_SESSION);
-  drupal_session_start();
-
-  unset($_SESSION['restrict_ip']);
-
   if (variable_get('restrict_ip_enable', 0)) {
+
+    drupal_bootstrap(DRUPAL_BOOTSTRAP_SESSION);
+    drupal_session_start();
+
+    if (isset($_SESSION['restrict_ip'])) {
+      unset($_SESSION['restrict_ip']);
+    }
+
     // Allow Drush requests regardless of IP.
     if (!drupal_is_cli()) {
       $access_denied = TRUE;
