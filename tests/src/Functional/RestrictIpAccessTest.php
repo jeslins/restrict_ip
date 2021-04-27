@@ -190,7 +190,7 @@ class RestrictIpAccessTest extends RestrictIpBrowserTestBase
 			$counter = 1;
 		}
 
-		$node = $this->container->get('entity.manager')->getStorage('node')
+		$node = $this->container->get('entity_type.manager')->getStorage('node')
 			->create([
 				'type' => 'article',
 				'title' => 'Article ' . $counter,

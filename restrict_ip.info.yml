@@ -1,4 +1,5 @@
 name: 'Restrict IP'
+core_version_requirement: ^8 || ^9
 description: 'Restricts access to the site to a list of user defined IP addresses'
 core: '8.x'
 type: 'module'

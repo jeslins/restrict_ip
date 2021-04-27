@@ -125,6 +125,6 @@ class RestrictIpEventSubscriber implements EventSubscriberInterface
 
 	private function setMessage($message)
 	{
-		drupal_set_message($message);
+		\Drupal::messenger()->addStatus($message);
 	}
 }

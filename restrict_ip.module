@@ -4,6 +4,7 @@ use Drupal\Core\Session\AccountInterface;
 use Drupal\Core\Access\AccessResult;
 use Drupal\Core\Asset\AttachedAssetsInterface;
 use Drupal\block\BlockInterface;
+Use Drupal\block\BlockRepositoryInterface;
 
 /**
  * Implementation of hook_block_access()
@@ -38,7 +39,7 @@ function restrict_ip_preprocess_page(&$build)
 {
 	if(\Drupal::service('restrict_ip.service')->userIsBlocked())
 	{
-		$regions = system_region_list(\Drupal::service('theme.manager')->getActiveTheme()->getName(), REGIONS_ALL);
+		$regions = system_region_list(\Drupal::service('theme.manager')->getActiveTheme()->getName(), BlockRepositoryInterface::REGIONS_ALL);
 		unset($regions['content']);
 
 		$whitelisted_regions = Drupal::service('module_handler')->invokeAll('restrict_ip_whitelisted_regions');

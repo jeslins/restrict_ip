@@ -1,0 +1,9 @@
+{
+  "name": "jeslins/restrict_ip",
+  "type": "drupal-module",
+  "description": "Restricts access to the site to a list of user defined IP addresses",
+  "keywords": ["Drupal"],
+  "homepage": "https://github.com/jeslins/restrict_ip",
+  "license": "GPLv3",
+  "minimum-stability": "dev"
+}
